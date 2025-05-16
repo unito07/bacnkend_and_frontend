@@ -1,0 +1,92 @@
+body {
+    font-family: Arial, sans-serif;
+    background: #f7f7f7;
+    margin: 0;
+    padding: 0;
+}
+
+h1, h2 {
+    text-align: center;
+    color: #333;
+}
+
+.scraper-form {
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+    max-width: 600px;
+    margin: 24px auto 16px auto;
+    padding: 24px 20px 16px 20px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+}
+
+.scraper-form input[type="text"],
+.scraper-form input[type="number"] {
+    flex: 1 1 180px;
+    padding: 8px;
+    border: 1px solid #bbb;
+    border-radius: 4px;
+    font-size: 1em;
+}
+
+.scraper-form button {
+    padding: 8px 16px;
+    background: #1976d2;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: bold;
+    transition: background 0.2s;
+}
+
+.scraper-form button:hover {
+    background: #125ea2;
+}
+
+#fields-list {
+    width: 100%;
+    margin-bottom: 8px;
+}
+
+.field-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 6px;
+    align-items: center;
+}
+
+.field-row input[type="text"] {
+    flex: 1 1 120px;
+}
+
+.remove-field {
+    background: #e53935;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    padding: 6px 10px;
+    cursor: pointer;
+    font-size: 0.95em;
+}
+
+.remove-field:hover {
+    background: #b71c1c;
+}
+
+#results {
+    max-width: 700px;
+    margin: 24px auto;
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+    padding: 20px;
+    font-family: "Fira Mono", "Consolas", monospace;
+    font-size: 1em;
+    white-space: pre-wrap;
+    word-break: break-word;
+    color: #222;
+}
