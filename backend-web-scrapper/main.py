@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from .dynamic_web_scrapper import scrape_data, scrape_dynamic_data  # Fixed import for package context
+from dynamic_web_scrapper import scrape_data, scrape_dynamic_data  # Fixed import for package context
 
 app = FastAPI()
 

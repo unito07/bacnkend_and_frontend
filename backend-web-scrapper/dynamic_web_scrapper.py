@@ -15,6 +15,9 @@ import random
 import os
 import subprocess
 
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
 logger = logging.getLogger(__name__)
 
 def scrape_data(url: str):
@@ -415,7 +418,8 @@ def scrape_dynamic_data(
     Scrapes dynamic data from the given URL using the provided container selector and custom fields.
     Returns a list of dicts (one per container).
     """
-    scraper = DynamicWebScraper()
+    logging.info(f"Starting dynamic scrape for URL: {url}")
+    scraper = DynamicWebScraper(timeout=30)  # Increased timeout to 30 seconds
     df = scraper.scrape_dynamic_page(
         url,
         container_selector,
@@ -424,4 +428,5 @@ def scrape_dynamic_data(
         max_scrolls=max_scrolls
     )
     # Convert DataFrame to list of dicts for JSON serialization
-    return df.to_dict(orient="records")
+    logging.info(f"Dynamic scrape complete. Found {len(df)} records.")
+    return df

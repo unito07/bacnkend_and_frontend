@@ -2,14 +2,14 @@
 
 ## Brief Overview
 - A modular web scraping tool with both static and dynamic scraping capabilities.
-- User-friendly frontend for inputting URLs, CSS selectors, and custom fields.
+- User-friendly React frontend for inputting URLs, CSS selectors, and custom fields.
 - FastAPI backend handles scraping logic and API endpoints.
 - Designed for easy customization and extension.
 
 ## How It Works
 
 ### 1. Frontend (UI)
-- Built with HTML, CSS, and JavaScript.
+- Built with React.
 - Lets you enter:
   - URL to scrape
   - Container CSS selector
@@ -26,24 +26,25 @@
   - `GET /scrape`: For static scraping (simple HTML)
   - `POST /scrape-dynamic`: For dynamic scraping (Selenium, supports scrolling, custom fields)
 - Handles CORS for local frontend access.
-- Returns results as JSON.
+- Returns a Pandas DataFrame.
 
 ### 3. Scraping Logic
 - **Static**: Uses requests and BeautifulSoup to fetch and parse HTML.
 - **Dynamic**: Uses a modular `DynamicWebScraper` class (Selenium, pandas, etc.) for advanced scraping, scrolling, and field extraction.
 - Both static and dynamic logic are in `backend-web-scrapper/dynamic_web_scrapper.py`.
+- Logging has been added to the dynamic scraper for debugging purposes.
 
 ### 4. Data Flow
 
 ```mermaid
 flowchart TD
-    A[User (Browser UI)] -->|Inputs URL, selectors| B[Frontend (HTML/JS)]
+    A[User (Browser UI)] -->|Inputs URL, selectors| B[Frontend (React)]
     B -->|GET /scrape| C[Backend (FastAPI) - Static Scraper]
     B -->|POST /scrape-dynamic| D[Backend (FastAPI) - Dynamic Scraper]
     C -->|Scrape with requests/BeautifulSoup| E[Target Website]
     D -->|Scrape with Selenium| E
     C -->|JSON result| B
-    D -->|JSON result| B
+    D -->|Pandas DataFrame| B
     B -->|Display results| A
 ```
 
@@ -57,10 +58,10 @@ web-scrapper/
 │   ├── dynamic_web_scrapper.py # Static & dynamic scraping logic
 │   └── requirements.txt       # Python dependencies
 │
-├── front-end/
-│   ├── index.html             # Main UI
-│   ├── script.js              # UI logic and API calls
-│   └── style.css              # UI styling
+├── front-end-react/
+│   ├── src/                   # React components and logic
+│   ├── public/                # Static assets
+│   └── package.json           # Project dependencies
 │
 ├── .clinerules/               # Project-specific rules and preferences
 │
