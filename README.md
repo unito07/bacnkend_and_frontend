@@ -47,6 +47,25 @@ web-scrapper/
 └── README.md                  # Project documentation
 ```
 
+## Getting Started
+Assuming all project dependencies are already installed, you can run the application by starting both the backend and frontend local servers.
+
+1.  **Start the Backend (FastAPI)**:
+    Navigate to the `backend-web-scrapper` directory and run:
+    ```bash
+    cd backend-web-scrapper && uvicorn main:app --reload
+    ```
+    The backend will typically run on `http://127.0.0.1:8000`.
+
+2.  **Start the Frontend (React)**:
+    Open a new terminal, navigate to the `front-end-react` directory and run:
+    ```bash
+    cd front-end-react && npm run dev
+    ```
+    The frontend will typically run on `http://localhost:5173`.
+
+Once both servers are running, open `http://localhost:5173` in your web browser to access the application.
+
 ## How It Works
 The React frontend captures user input and sends requests to the FastAPI backend. The backend processes these requests using either static (BeautifulSoup) or dynamic (Selenium) scraping methods, retrieves data from target websites, and returns the results to the frontend for display.
 
