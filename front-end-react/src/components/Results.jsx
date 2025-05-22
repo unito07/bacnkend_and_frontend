@@ -3,7 +3,38 @@ import React from "react";
 export default function Results({ data }) {
   if (!data) return null;
 
-  // If data is an array of objects, display as table
+  // If data is an object with a 'results' key that is an array of objects, display as table
+  if (
+    typeof data === "object" &&
+    data !== null &&
+    Array.isArray(data.results) &&
+    data.results.length > 0 &&
+    typeof data.results[0] === "object"
+  ) {
+    const columns = Object.keys(data.results[0]);
+    return (
+      <table className="result-table">
+        <thead>
+          <tr>
+            {columns.map(col => (
+              <th key={col}>{col}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {data.results.map((row, i) => (
+            <tr key={i}>
+              {columns.map(col => (
+                <td key={col}>{row[col]}</td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    );
+  }
+
+  // If data is an array of objects (for static scraper), display as table
   if (Array.isArray(data) && data.length && typeof data[0] === "object") {
     const columns = Object.keys(data[0]);
     return (
@@ -28,8 +59,8 @@ export default function Results({ data }) {
     );
   }
 
-  // If data is an object, display key-value pairs
-  if (typeof data === "object") {
+  // If data is a generic object, display key-value pairs
+  if (typeof data === "object" && data !== null) {
     return (
       <table className="result-table">
         <tbody>

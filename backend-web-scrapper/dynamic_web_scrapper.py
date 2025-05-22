@@ -429,4 +429,4 @@ def scrape_dynamic_data(
     )
     # Convert DataFrame to list of dicts for JSON serialization
     logging.info(f"Dynamic scrape complete. Found {len(df)} records.")
-    return df
+    return df.to_dict(orient="records")
