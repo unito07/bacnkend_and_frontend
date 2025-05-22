@@ -1,81 +1,56 @@
-# Web Scrapper Project Overview
+# Web Scraper Project
 
-## Brief Overview
-- A modular web scraping tool with both static and dynamic scraping capabilities.
-- User-friendly React frontend for inputting URLs, CSS selectors, and custom fields.
-- FastAPI backend handles scraping logic and API endpoints.
-- Designed for easy customization and extension.
+## Overview
+A versatile web scraping solution featuring a React frontend and a FastAPI backend. It supports both static and dynamic content extraction, making it suitable for a wide range of web data collection tasks.
 
-## How It Works
+## Key Features
 
-### 1. Frontend (UI)
-- Built with React.
-- Lets you enter:
-  - URL to scrape
-  - Container CSS selector
-  - Multiple custom fields (name + CSS selector)
-  - Options for scrolling and max scrolls (for dynamic scraping)
-- Two main actions:
-  - **Static Scrape**: Uses requests/BeautifulSoup (for simple/static pages)
-  - **Dynamic Scrape**: Uses Selenium (for JavaScript-heavy/dynamic pages)
-- Results are displayed in a formatted output area.
+### Frontend (React)
+The user-friendly React application provides an interactive interface for configuring and initiating web scraping tasks.
+- **Input Fields**: Users can easily input the target URL, a main CSS selector for the container element, and define multiple custom fields with their respective CSS selectors for precise data extraction.
+- **Scraping Modes**:
+    - **Static Scrape**: Utilizes `requests` and `BeautifulSoup` via the backend for quick data retrieval from static HTML pages.
+    - **Dynamic Scrape**: Employs `Selenium` through the backend to handle complex, JavaScript-rendered websites. This mode includes options for simulating user interactions like scrolling (with a configurable maximum scroll limit) to load dynamic content before scraping.
+- **Real-time Results**: Scraped data is displayed in a clear, formatted output area, providing immediate feedback to the user.
+- **Modular Components**: The React frontend is built with modular components (`StaticScraper.jsx`, `DynamicScraper.jsx`, `FieldRow.jsx`, `Results.jsx`) for maintainability and extensibility.
 
-### 2. Backend (API)
-- Built with FastAPI (Python).
-- Exposes two endpoints:
-  - `GET /scrape`: For static scraping (simple HTML)
-  - `POST /scrape-dynamic`: For dynamic scraping (Selenium, supports scrolling, custom fields)
-- Handles CORS for local frontend access.
-- Returns a Pandas DataFrame.
+### Backend (FastAPI)
+- Python-based API handling all scraping logic.
+- **`/scrape` (GET)**: For static web pages (requests/BeautifulSoup).
+- **`/scrape-dynamic` (POST)**: For dynamic, JavaScript-heavy sites (Selenium, with scrolling and custom field support).
+- Manages CORS for seamless frontend-backend communication.
 
-### 3. Scraping Logic
-- **Static**: Uses requests and BeautifulSoup to fetch and parse HTML.
-- **Dynamic**: Uses a modular `DynamicWebScraper` class (Selenium, pandas, etc.) for advanced scraping, scrolling, and field extraction.
-- Both static and dynamic logic are in `backend-web-scrapper/dynamic_web_scrapper.py`.
-- Logging has been added to the dynamic scraper for debugging purposes.
-
-### 4. Data Flow
-
-```mermaid
-flowchart TD
-    A[User (Browser UI)] -->|Inputs URL, selectors| B[Frontend (React)]
-    B -->|GET /scrape| C[Backend (FastAPI) - Static Scraper]
-    B -->|POST /scrape-dynamic| D[Backend (FastAPI) - Dynamic Scraper]
-    C -->|Scrape with requests/BeautifulSoup| E[Target Website]
-    D -->|Scrape with Selenium| E
-    C -->|JSON result| B
-    D -->|Pandas DataFrame| B
-    B -->|Display results| A
-```
+### Scraping Capabilities
+- **Static Scraper**: Efficiently extracts data from simple HTML pages.
+- **Dynamic Scraper**: Leverages Selenium for complex sites, handling JavaScript rendering, infinite scrolling, and custom data extraction.
+- All core scraping logic is centralized in `backend-web-scrapper/dynamic_web_scrapper.py`.
 
 ## Project Structure
-
 ```
 web-scrapper/
-│
 ├── backend-web-scrapper/
-│   ├── main.py                # FastAPI app and endpoints
-│   ├── dynamic_web_scrapper.py # Static & dynamic scraping logic
+│   ├── main.py                # FastAPI application
+│   ├── dynamic_web_scrapper.py # Core scraping functions
 │   └── requirements.txt       # Python dependencies
 │
 ├── front-end-react/
-│   ├── src/                   # React components and logic
-│   ├── public/                # Static assets
-│   └── package.json           # Project dependencies
+│   ├── src/                   # React source code
+│   │   ├── components/        # Reusable React components
+│   │   │   ├── StaticScraper.jsx
+│   │   │   ├── DynamicScraper.jsx
+│   │   │   ├── FieldRow.jsx
+│   │   │   └── Results.jsx
+│   │   ├── App.jsx            # Main application component
+│   │   └── main.jsx           # React entry point
+│   └── package.json           # Frontend dependencies
 │
-├── .clinerules/               # Project-specific rules and preferences
-│
-└── README.md                  # Project overview (this file)
+└── README.md                  # Project documentation
 ```
 
-## Customization & Extension
+## How It Works
+The React frontend captures user input and sends requests to the FastAPI backend. The backend processes these requests using either static (BeautifulSoup) or dynamic (Selenium) scraping methods, retrieves data from target websites, and returns the results to the frontend for display.
 
-- Add new scraping fields or logic by editing `dynamic_web_scrapper.py`.
-- UI can be extended for more options or improved styling.
-- Backend endpoints can be expanded for more advanced workflows.
-
-## How Everything Connects
-
-- The frontend and backend communicate over HTTP (localhost).
-- User input is sent from the UI to the backend, which processes the request and returns results.
-- The UI displays the results in real time.
+## Extend & Customize
+- Easily add new scraping fields or modify logic in `backend-web-scrapper/dynamic_web_scrapper.py`.
+- Enhance the React UI with new features or styling.
+- Expand backend endpoints for more advanced data processing or integrations.
