@@ -4,143 +4,163 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+  font-family: "SF Mono", "Consolas", "Liberation Mono", Menlo, Courier, monospace; /* Monospaced font */
   line-height: 1.5;
   font-weight: 400;
 
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
+  color-scheme: dark; /* Default to dark scheme */
+  color: #E5E5E5; /* Light Gray for text */
+  background-color: #0A0A0F; /* Deep Space Black for background */
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+
+  --radius: 0.5rem; /* Adjusted radius for a techy feel, can be 0 for sharper edges */
+
+  /* Cyberpunk Theme Variables */
+  --background: #0A0A0F; /* Deep Space Black */
+  --foreground: #E5E5E5; /* Light Gray */
+
+  --card: #1E1B2E; /* Dark Indigo */
+  --card-foreground: #E5E5E5; /* Light Gray */
+
+  --popover: #1E1B2E; /* Dark Indigo */
+  --popover-foreground: #E5E5E5; /* Light Gray */
+
+  --primary: #A259FF; /* Neon Purple */
+  --primary-foreground: #E5E5E5; /* Light Gray */
+
+  --secondary: #00FFFF; /* Electric Blue */
+  --secondary-foreground: #0A0A0F; /* Deep Space Black */
+
+  --muted: #1E1B2E; /* Dark Indigo */
+  --muted-foreground: #9CA3AF; /* Slate Gray */
+
+  --accent: #B8FF00; /* Cyber Lime */
+  --accent-foreground: #0A0A0F; /* Deep Space Black */
+
+  --destructive: #FF2E88; /* Hot Pink Glow */
+  --destructive-foreground: #E5E5E5; /* Light Gray */
+
+  --border: #6E40C9; /* Soft Violet */
+  --input: #6E40C9; /* Soft Violet for input borders */
+  --ring: #A259FF; /* Neon Purple for focus rings */
+
+  /* Chart colors can be updated if charts are used, using the new palette */
+  --chart-1: #A259FF;
+  --chart-2: #00FFFF;
+  --chart-3: #B8FF00;
+  --chart-4: #FF2E88;
+  --chart-5: #6E40C9;
+
+  /* Sidebar variables - assuming a dark sidebar consistent with the theme */
+  --sidebar: #1E1B2E; /* Dark Indigo */
+  --sidebar-foreground: #E5E5E5; /* Light Gray */
+  --sidebar-primary: #A259FF; /* Neon Purple */
+  --sidebar-primary-foreground: #E5E5E5; /* Light Gray */
+  --sidebar-accent: #B8FF00; /* Cyber Lime */
+  --sidebar-accent-foreground: #0A0A0F; /* Deep Space Black */
+  --sidebar-border: #6E40C9; /* Soft Violet */
+  --sidebar-ring: #A259FF; /* Neon Purple */
 }
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-a {
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
 
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
-
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+/* General body styling for the cyberpunk theme */
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  background-color: var(--background); /* Ensure body background matches theme */
+  color: var(--foreground); /* Ensure body text color matches theme */
+  font-family: "SF Mono", "Consolas", "Liberation Mono", Menlo, Courier, monospace; /* Monospaced font */
 }
 
 a {
   font-weight: 500;
-  color: #646cff;
+  color: var(--primary); /* Neon Purple for links */
   text-decoration: inherit;
 }
 a:hover {
-  color: #535bf2;
-}
-
-body {
-  margin: 0;
-  /* display: flex; */ /* Removed for more flexible page layouts */
-  /* place-items: center; */ /* Removed for more flexible page layouts */
-  min-width: 320px;
-  min-height: 100vh;
+  color: var(--electric-blue); /* Electric blue for link hover */
 }
 
 h1 {
   font-size: 3.2em;
   line-height: 1.1;
+  color: var(--primary); /* Neon Purple for H1 */
 }
 
 button {
-  border-radius: 8px;
-  border: 1px solid transparent;
+  border-radius: var(--radius);
+  border: 1px solid var(--border); /* Soft Violet border */
   padding: 0.6em 1.2em;
   font-size: 1em;
   font-weight: 500;
   font-family: inherit;
-  background-color: #1a1a1a;
+  background-color: var(--card); /* Dark Indigo for button background */
+  color: var(--primary-foreground); /* Light Gray for button text */
   cursor: pointer;
-  transition: border-color 0.25s;
+  transition: all 0.25s;
 }
 button:hover {
-  border-color: #646cff;
+  background-color: var(--primary); /* Neon Purple for button hover background */
+  color: var(--primary-foreground);
+  border-color: var(--primary);
+  box-shadow: 0 0 15px var(--primary); /* Glow effect */
 }
 button:focus,
 button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
+  outline: 2px solid var(--ring); /* Neon Purple focus ring */
+  outline-offset: 2px;
 }
 
+/* Ensure .dark class variables are set for explicit dark mode toggling if needed,
+   but :root already defines the dark theme as default. */
+.dark {
+  --background: #0A0A0F;
+  --foreground: #E5E5E5;
+  --card: #1E1B2E;
+  --card-foreground: #E5E5E5;
+  --popover: #1E1B2E;
+  --popover-foreground: #E5E5E5;
+  --primary: #A259FF;
+  --primary-foreground: #E5E5E5;
+  --secondary: #00FFFF;
+  --secondary-foreground: #0A0A0F;
+  --muted: #1E1B2E;
+  --muted-foreground: #9CA3AF;
+  --accent: #B8FF00;
+  --accent-foreground: #0A0A0F;
+  --destructive: #FF2E88;
+  --destructive-foreground: #E5E5E5;
+  --border: #6E40C9;
+  --input: #6E40C9;
+  --ring: #A259FF;
+
+  --chart-1: #A259FF;
+  --chart-2: #00FFFF;
+  --chart-3: #B8FF00;
+  --chart-4: #FF2E88;
+  --chart-5: #6E40C9;
+
+  --sidebar: #1E1B2E;
+  --sidebar-foreground: #E5E5E5;
+  --sidebar-primary: #A259FF;
+  --sidebar-primary-foreground: #E5E5E5;
+  --sidebar-accent: #B8FF00;
+  --sidebar-accent-foreground: #0A0A0F;
+  --sidebar-border: #6E40C9;
+  --sidebar-ring: #A259FF;
+}
+
+
+/* Remove the prefers-color-scheme: light block or make it also dark if the site is always dark */
+/*
 @media (prefers-color-scheme: light) {
   :root {
     color: #213547;
@@ -153,12 +173,14 @@ button:focus-visible {
     background-color: #f9f9f9;
   }
 }
+*/
 
 @theme inline {
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
+  --radius-sm: calc(var(--radius) - 2px); /* Adjusted for potentially smaller base radius */
+  --radius-md: var(--radius);
+  --radius-lg: calc(var(--radius) + 2px);
   --radius-xl: calc(var(--radius) + 4px);
+  /* ... rest of the @theme variables mapping to the new CSS vars ... */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -190,40 +212,6 @@ button:focus-visible {
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
-}
-
-.dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
 }
 
 /*

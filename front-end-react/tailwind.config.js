@@ -8,25 +8,15 @@ export default {
   theme: {
     extend: {
       colors: {
-        'brand-primary': '#da7756', // Terra Cotta
-        'cta': '#bd5d3a',
-        'background-main': '#eeece2',
-        'text-main': '#3d3929',
-        'surface': '#f8ece7', // Lightest Shade
-        'border-main': '#edcdbf', // Light Shade
-        'accent': '#d88e6f', // Medium shade for icons/accents
-
-        // Extended Shades
-        'brand-shade-lightest': '#f8ece7',
-        'brand-shade-light': '#edcdbf',
-        'brand-shade-medium-light': '#e2ae97',
-        'brand-shade-medium': '#d88e6f',
-        'brand-shade-medium-dark': '#cd6f47',
-        'brand-shade-dark': '#b05730',
-        'brand-shade-darker': '#884325',
-        'brand-shade-deep-dark': '#602f1a',
-        'brand-shade-deepest': '#381c0f',
-        'brand-shade-near-black': '#100804',
+        'deep-space-black': '#0A0A0F',
+        'neon-purple': '#A259FF',
+        'electric-blue': '#00FFFF',
+        'cyber-lime': '#B8FF00',
+        'light-gray': '#E5E5E5',
+        'slate-gray': '#9CA3AF',
+        'hot-pink-glow': '#FF2E88',
+        'dark-indigo': '#1E1B2E',
+        'soft-violet': '#6E40C9',
       }
     },
   },
