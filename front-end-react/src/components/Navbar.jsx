@@ -27,7 +27,7 @@ const navLinks = [
 
 export default function Navbar() {
   return (
-    <div className="fixed top-0 left-1/2 -translate-x-1/2 z-50 p-2">
+    <div className="relative w-full flex justify-center mt-4">
       <Dock
         direction="horizontal"
         className="bg-dark-indigo/80 backdrop-blur-md border border-soft-violet rounded-lg p-4"
