@@ -6,11 +6,14 @@ import AboutUsPage from "./pages/AboutUsPage";
 import DocumentationPage from "./pages/DocumentationPage";
 import HistoryLogsPage from "./pages/HistoryLogsPage";
 import SettingsPage from "./pages/SettingsPage";
+import Navbar from "./components/Navbar"; // Import the Navbar
 
 export default function App() {
   return (
     <Router>
-      <main>
+      <Navbar /> {/* Add the Navbar component here */}
+      <main className="min-h-screen bg-slate-900 text-white">
+        {/* The Navbar might affect page layout, consider if main needs padding-top */}
         <Routes>
           <Route path="/" element={<LandingPage />} />
           <Route path="/app" element={<ScraperPage />} />

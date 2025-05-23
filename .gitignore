@@ -1,0 +1,16 @@
+# OS junk
+.DS_Store
+
+# Dependencies
+node_modules/
+
+# Logs and temp
+*.log
+*.tmp
+
+# Build artifacts
+build/
+dist/
+
+# Lock files (optional)
+package-lock.json

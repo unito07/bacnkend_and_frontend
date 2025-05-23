@@ -1,80 +1,68 @@
 import React from "react";
+import { Button } from "@/components/ui/button";
 
 export default function Results({ data }) {
   if (!data) return null;
 
-  // If data is an object with a 'results' key that is an array of objects, display as table
-  if (
-    typeof data === "object" &&
-    data !== null &&
-    Array.isArray(data.results) &&
-    data.results.length > 0 &&
-    typeof data.results[0] === "object"
-  ) {
-    const columns = Object.keys(data.results[0]);
+  const downloadJson = () => {
+    const jsonString = `data:text/json;charset=utf-8,${encodeURIComponent(
+      JSON.stringify(data, null, 2)
+    )}`;
+    const link = document.createElement("a");
+    link.href = jsonString;
+    link.download = "scraper_results.json";
+    link.click();
+  };
+
+  const renderTable = (tableData) => {
+    if (!tableData || tableData.length === 0 || typeof tableData[0] !== "object") {
+      return <pre className="mt-4 p-4 bg-slate-700 text-slate-200 rounded-md overflow-x-auto">{JSON.stringify(data, null, 2)}</pre>;
+    }
+    const columns = Object.keys(tableData[0]);
     return (
-      <table className="result-table">
-        <thead>
-          <tr>
-            {columns.map(col => (
-              <th key={col}>{col}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {data.results.map((row, i) => (
-            <tr key={i}>
+      <div className="overflow-x-auto mt-4">
+        <table className="min-w-full bg-slate-700 text-slate-200 rounded-md shadow">
+          <thead className="bg-slate-600">
+            <tr>
               {columns.map(col => (
-                <td key={col}>{row[col]}</td>
+                <th key={col} className="px-4 py-2 text-left text-sm font-semibold">{col}</th>
               ))}
             </tr>
-          ))}
-        </tbody>
-      </table>
-    );
-  }
-
-  // If data is an array of objects (for static scraper), display as table
-  if (Array.isArray(data) && data.length && typeof data[0] === "object") {
-    const columns = Object.keys(data[0]);
-    return (
-      <table className="result-table">
-        <thead>
-          <tr>
-            {columns.map(col => (
-              <th key={col}>{col}</th>
+          </thead>
+          <tbody>
+            {tableData.map((row, i) => (
+              <tr key={i} className="border-b border-slate-600 last:border-b-0 hover:bg-slate-600/50">
+                {columns.map(col => (
+                  <td key={col} className="px-4 py-2 text-sm">{String(row[col])}</td>
+                ))}
+              </tr>
             ))}
-          </tr>
-        </thead>
-        <tbody>
-          {data.map((row, i) => (
-            <tr key={i}>
-              {columns.map(col => (
-                <td key={col}>{row[col]}</td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
+          </tbody>
+        </table>
+      </div>
     );
+  };
+  
+  let displayData;
+  if (typeof data === "object" && data !== null && Array.isArray(data.results)) {
+    displayData = data.results;
+  } else if (Array.isArray(data)) {
+    displayData = data;
   }
 
-  // If data is a generic object, display key-value pairs
-  if (typeof data === "object" && data !== null) {
-    return (
-      <table className="result-table">
-        <tbody>
-          {Object.entries(data).map(([k, v]) => (
-            <tr key={k}>
-              <th>{k}</th>
-              <td>{Array.isArray(v) ? v.join(", ") : String(v)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    );
-  }
-
-  // Otherwise, just display as text
-  return <pre>{JSON.stringify(data, null, 2)}</pre>;
+  return (
+    <div className="mt-6">
+      <div className="flex justify-between items-center mb-3">
+        <h3 className="text-xl font-semibold text-white">Results</h3>
+        <Button onClick={downloadJson} variant="outline" className="border-sky-600 text-sky-400 hover:bg-sky-700/20 hover:text-sky-300">
+          Download JSON
+        </Button>
+      </div>
+      {displayData ? renderTable(displayData) : (
+        <pre className="mt-4 p-4 bg-slate-700 text-slate-200 rounded-md overflow-x-auto">
+          {JSON.stringify(data, null, 2)}
+        </pre>
+      )}
+    </div>
+  );
 }

@@ -1,23 +1,16 @@
 ## Brief overview
-This Cline rule file outlines preferences for developing the web scraper project, including communication style, development workflow, coding best practices, and project context.
+- This rule outlines specific UI/UX preferences for the web scraper project to ensure a consistent and visually appealing design.
 
-## Communication style
-- Be concise and to the point in all communications.
-- Avoid unnecessary details or explanations.
+## UI/UX preferences
+- The goal is to achieve a modern and sleek aesthetic for the UI.
+- Prioritize the use of ShadCN UI components for consistency and visual appeal.
+- Apply Tailwind CSS classes for styling, ensuring responsiveness and a clean design.
+- Avoid using Magic UI components due to current API key/limit issues.
 
-## Development workflow
-- Focus on iterative development, with frequent testing and feedback.
-- Prioritize clear and well-defined tasks.
-
-## Coding best practices
-- Use clear and descriptive variable and function names.
-- Follow established coding conventions for the project.
-- Write well-documented code.
-
-## Project context
-- The project involves creating a web scraper with a new UI and connecting it to existing code.
-- The tech stack includes HTML, CSS, and JavaScript.
-
-## Other guidelines
-- Use hyphens ("-") instead of underscores ("\_") to separate words in filenames.
-- When creating the backend, use FastAPI to create API endpoints. You can either create new functions or use pre-made ones and wrap them in an API endpoint.
+## Styling and Components
+- The project uses Tailwind CSS for styling.
+- Colors are defined in the `theme.extend.colors` section of the `tailwind.config.js` file.
+- Apply colors using Tailwind utility classes in the components (e.g., `bg-background-main`, `text-text-main`).
+- The project uses ShadCN UI components for buttons.
+- To add a button, import the `Button` component from `@/components/ui/button` and use it in your component.
+- Style the button using Tailwind utility classes.
