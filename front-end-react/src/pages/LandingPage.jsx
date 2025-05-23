@@ -1,4 +1,5 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Zap, Cpu, Code, PlayCircle, Terminal, ArrowRight, ShieldCheck, BarChart, Users } from 'lucide-react'; // Example icons
 import { HyperText } from '@/components/magicui/hyper-text'; // Import HyperText as named import
 
@@ -10,6 +11,12 @@ const PixelIcon = ({ icon: IconComponent, className }) => (
 // AnimatedTerminalText component is removed as HyperText will be used for the main title.
 
 function LandingPage() {
+  const navigate = useNavigate();
+
+  const handleGetStartedClick = () => {
+    navigate('/app');
+  };
+
   return (
     <div className="min-h-screen bg-deep-space-black text-light-gray font-mono flex flex-col items-center overflow-x-hidden">
       {/* Optional: Add global grid overlay or background pattern here */}
@@ -35,7 +42,10 @@ function LandingPage() {
           Retro-futuristic toolkit for the modern developer. Elevate your workflow with intelligent precision.
         </p>
         {/* Glitch animation placeholder on button */}
-        <button className="bg-neon-purple text-deep-space-black hover:bg-hot-pink-glow hover:text-light-gray font-bold py-3 px-8 rounded-none text-lg transition-all duration-300 transform hover:skew-x-[-5deg] active:scale-95 shadow-[0_0_15px_rgba(162,89,255,0.8)] hover:shadow-[0_0_25px_rgba(255,46,136,0.9)]">
+        <button
+          onClick={handleGetStartedClick}
+          className="bg-neon-purple text-deep-space-black hover:bg-hot-pink-glow hover:text-light-gray font-bold py-3 px-8 rounded-none text-lg transition-all duration-300 transform hover:skew-x-[-5deg] active:scale-95 shadow-[0_0_15px_rgba(162,89,255,0.8)] hover:shadow-[0_0_25px_rgba(255,46,136,0.9)]"
+        >
           {'GET_STARTED >'}
         </button>
         {/* Subtle glitch text effect placeholder */}
