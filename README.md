@@ -3,10 +3,21 @@
 ## Overview
 A versatile web scraping solution featuring a React frontend and a FastAPI backend. It supports both static and dynamic content extraction, making it suitable for a wide range of web data collection tasks.
 
+## Technologies Used
+
+- **Frontend:** React, Vite, Tailwind CSS, ShadCN UI, Magic UI
+- **Backend:** Python, FastAPI, Selenium, BeautifulSoup
+- **Styling:** Tailwind CSS, PostCSS
+- **Build Tool:** Vite (Frontend), pip (Backend)
+- **Version Control:** Git
+
 ## Key Features
 
-### Frontend (React with ShadCN UI)
-The user-friendly React application, built with **ShadCN UI components** for a modern look and feel, provides an interactive interface for configuring and initiating web scraping tasks. The application is structured into several pages for better organization:
+### Frontend (React with ShadCN UI & Magic UI)
+The user-friendly React application, built with **ShadCN UI components** for a modern look and feel, and enhanced with **Magic UI components** for dynamic and engaging user experiences, provides an interactive interface for configuring and initiating web scraping tasks.
+- **ShadCN UI:** Provides foundational UI primitives and a theming system based on CSS variables.
+- **Magic UI:** Components are integrated by downloading their source code directly into `src/components/magicui/` using `npx shadcn@latest add [component-url]`, allowing for direct customization.
+The application is structured into several pages for better organization:
 - **Landing Page (`LandingPage.jsx`):** Introduces the application and its features.
 - **Scraper Page (`ScraperPage.jsx`):** Contains the core scraping interface.
   - **Input Fields**: Users can easily input the target URL, a main CSS selector for the container element, and define multiple custom fields with their respective CSS selectors for precise data extraction.
@@ -208,8 +219,12 @@ The project utilizes Tailwind CSS for utility-first styling and ShadCN UI compon
   ],
   ```
 - **Known Issues/Notes**:
+  - **Persistent PostCSS Error:** The project currently experiences a persistent PostCSS error related to Tailwind CSS integration:
+    ```
+    [postcss] It looks like you're trying to use `tailwindcss` directly as a PostCSS plugin. The PostCSS plugin has moved to a separate package, so to continue using Tailwind CSS with PostCSS you'll need to install `@tailwindcss/postcss` and update your PostCSS configuration.
+    ```
+    This issue prevents Tailwind CSS styles from applying correctly in the browser. While the current `postcss.config.cjs` uses `tailwindcss: {}`, the recommended solution involves installing `@tailwindcss/postcss` and updating the configuration accordingly. Detailed troubleshooting steps and the current status are documented in `.clinerules/project-build-overview.md` and `.clinerules/ui-build-summary.md`.
   - The `@layer base` rules in `src/index.css` that might have been initially scaffolded by ShadCN (related to applying `bg-background` or `border-border` to `body`) were found to cause issues with Tailwind's processing order and were commented out or removed. The necessary base styling is achieved through Tailwind's default base and styles applied in `App.jsx` or global CSS.
-  - The persistent PostCSS error mentioned in `.clinerules/project-build-overview.md` regarding `@tailwindcss/postcss` should be monitored. While the current setup with `tailwindcss: {}` in `postcss.config.cjs` might work, resolving this warning according to Tailwind's recommendations (installing `@tailwindcss/postcss` and using it in the config) could prevent future issues.
 
 ### Backend (`backend-web-scrapper/requirements.txt`)
 Key Python dependencies include:

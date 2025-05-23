@@ -35,11 +35,11 @@ function LandingPage() {
             duration={1200} // Optional: adjust duration
             // The text to animate is passed as children
           >
-            AI_BRAND_DEV_TOOLS
+            W3b_5cr4pp3r
           </HyperText>
         </h1>
         <p className="text-xl md:text-2xl text-slate-gray mb-8 max-w-2xl">
-          Retro-futuristic toolkit for the modern developer. Elevate your workflow with intelligent precision.
+          Retro-futuristic toolkit for web data extraction. Elevate your scraping with intelligent precision.
         </p>
         {/* Glitch animation placeholder on button */}
         <button
@@ -122,7 +122,7 @@ function LandingPage() {
 
       {/* Footer - Basic Placeholder */}
       <footer className="w-full py-8 text-center border-t border-soft-violet">
-        <p className="text-slate-gray">&copy; {new Date().getFullYear()} AI_BRAND. All rights reserved.</p>
+        <p className="text-slate-gray">&copy; {new Date().getFullYear()} W3b_5cr4pp3r. All rights reserved.</p>
         <p className="text-xs text-neon-purple opacity-50 mt-1">SYSTEM_STATUS: OPERATIONAL</p>
       </footer>
     </div>
