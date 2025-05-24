@@ -42,6 +42,27 @@ The application is structured into several pages for better organization:
 - **Dynamic Scraper**: Leverages Selenium for complex sites, handling JavaScript rendering, infinite scrolling, and custom data extraction.
 - All core scraping logic is centralized in `backend-web-scrapper/dynamic_web_scrapper.py`.
 
+## Recent Enhancements
+
+- __Add "Download as CSV" Feature:__
+  - Added a "Download CSV" button to `Results.jsx`.
+  - Implemented CSV generation logic in `Results.jsx`.
+- __Refine CSV Column Order:__
+  - Modified `DynamicScraper.jsx` to pass `fieldOrder` (user-defined field order) to `Results.jsx`.
+  - Updated `Results.jsx` to use `fieldOrder` for CSV headers and table columns.
+- __Fix CSV Newline Issue:__ Corrected `csvRows.join('\\n')` to `csvRows.join('\n')` in `Results.jsx` for proper row separation.
+- __Address Trailing Spaces in Field Names:__
+  - Updated `DynamicScraper.jsx` to `.trim()` field names in the payload sent to the backend.
+  - Also updated `DynamicScraper.jsx` to `.trim()` field names when constructing the `fieldOrder` prop for `Results.jsx`.
+- __Clean "Noise" from Price Data (Prefixes like "From "):__
+  - Modified `backend-web-scrapper/dynamic_web_scrapper.py` to use `re.sub()` to remove prefixes like "From ", "Was ", etc., from extracted price strings.
+- __Filter Incomplete Rows (Items without a "name"):__
+  - Initially attempted a backend filter in `dynamic_web_scrapper.py` for fields named "name". User indicated they removed this.
+  - Implemented frontend filtering in `Results.jsx`:
+    - First attempt: Filtered if a field specifically named "name" (case-insensitive) was empty.
+    - Second attempt (after user feedback for more general): Filtered if the *first* user-defined field was empty.
+    - Third attempt (current, after user feedback for "smarter"): Filtered if any user-defined field matching a list of common key identifiers (e.g., "name", "title", "product") is empty.
+
 ## Project Structure
 ```
 web-scrapper/

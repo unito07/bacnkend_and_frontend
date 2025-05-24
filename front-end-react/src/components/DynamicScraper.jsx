@@ -37,7 +37,7 @@ export default function DynamicScraper() {
       const payload = {
         url,
         container_selector: containerSelector,
-        custom_fields: fields.filter(f => f.name && f.selector),
+        custom_fields: fields.filter(f => f.name && f.selector).map(f => ({ ...f, name: f.name.trim() })),
         enable_scrolling: enableScrolling,
         max_scrolls: Number(maxScrolls)
       };
@@ -55,7 +55,7 @@ export default function DynamicScraper() {
     setLoading(false);
   };
 
-  const fieldOrder = fields.filter(f => f.name && f.selector).map(f => f.name);
+  const fieldOrder = fields.filter(f => f.name && f.selector).map(f => f.name.trim()); // Added .trim() here
 
   return (
     <section className="p-6 bg-slate-800 rounded-lg shadow-md my-8">

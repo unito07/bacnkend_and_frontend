@@ -128,11 +128,39 @@ export default function Results({ data, fieldOrder }) { // Added fieldOrder prop
     );
   };
   
-  let displayData;
+  let initialDisplayData;
   if (typeof data === "object" && data !== null && Array.isArray(data.results)) {
-    displayData = data.results;
+    initialDisplayData = data.results;
   } else if (Array.isArray(data)) {
-    displayData = data;
+    initialDisplayData = data;
+  } else {
+    initialDisplayData = null;
+  }
+
+  let displayData = initialDisplayData;
+
+  // Filter out rows if a common key identifier field is empty
+  if (Array.isArray(initialDisplayData) && initialDisplayData.length > 0 && fieldOrder && fieldOrder.length > 0) {
+    const commonKeyNames = ["name", "title", "product", "item", "heading", "header"];
+    let identifiedKeyField = null;
+
+    for (const fieldNameFromOrder of fieldOrder) {
+      if (commonKeyNames.includes(fieldNameFromOrder.toLowerCase())) {
+        if (initialDisplayData[0].hasOwnProperty(fieldNameFromOrder)) {
+          identifiedKeyField = fieldNameFromOrder;
+          break; // Use the first one found in fieldOrder that matches commonKeyNames
+        }
+      }
+    }
+
+    if (identifiedKeyField) {
+      displayData = initialDisplayData.filter(row => {
+        const keyValue = row[identifiedKeyField];
+        // Keep row if keyValue is not null, not undefined, and not an empty or whitespace-only string
+        return keyValue !== null && keyValue !== undefined && String(keyValue).trim() !== '';
+      });
+    }
+    // If no common key field is identified, no specific filtering is applied here.
   }
 
   return (
