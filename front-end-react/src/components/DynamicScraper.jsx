@@ -55,6 +55,8 @@ export default function DynamicScraper() {
     setLoading(false);
   };
 
+  const fieldOrder = fields.filter(f => f.name && f.selector).map(f => f.name);
+
   return (
     <section className="p-6 bg-slate-800 rounded-lg shadow-md my-8">
       <h2 className="text-2xl font-semibold text-white mb-4">Dynamic Scraper</h2>
@@ -134,7 +136,7 @@ export default function DynamicScraper() {
         </Button>
       </form>
       {error && <div className="mt-4 text-red-400 bg-red-900/30 p-3 rounded-md">{error}</div>}
-      {result && <Results data={result} />}
+      {result && <Results data={result} fieldOrder={fieldOrder.length > 0 ? fieldOrder : null} />}
     </section>
   );
 }
