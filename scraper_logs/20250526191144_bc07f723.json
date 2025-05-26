@@ -1,0 +1,21 @@
+{
+    "id": "20250526191144_bc07f723",
+    "timestamp": "2025-05-26T19:11:44.362046",
+    "scrapeType": "Dynamic",
+    "targetUrl": "https://adeeg.com/collections/kitchen-appliances",
+    "status": "Success",
+    "errorMessage": null,
+    "dataPreview": null,
+    "requestPayload": {
+        "url": "https://adeeg.com/collections/kitchen-appliances",
+        "container_selector": ".card-information",
+        "custom_fields": [
+            {
+                "name": "price",
+                "selector": ".price-item--regular"
+            }
+        ],
+        "enable_scrolling": false,
+        "max_scrolls": 5
+    }
+}

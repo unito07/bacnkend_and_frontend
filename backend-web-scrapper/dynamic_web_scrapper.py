@@ -30,6 +30,11 @@ def set_scraper_status(should_run: bool):
     scraper_should_run = should_run
     logger.info(f"Scraper status set to: {'RUNNING' if should_run else 'STOPPED'}")
 
+def get_scraper_status() -> bool:
+    """Returns the current status of the scraper_should_run flag."""
+    global scraper_should_run
+    return scraper_should_run
+
 def cancellable_sleep(duration, interval=0.1):
     """
     Sleeps for a given duration, but checks the scraper_should_run flag

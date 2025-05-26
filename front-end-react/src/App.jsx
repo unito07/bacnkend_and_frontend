@@ -7,12 +7,13 @@ import DocumentationPage from "./pages/DocumentationPage";
 import HistoryLogsPage from "./pages/HistoryLogsPage";
 import SettingsPage from "./pages/SettingsPage";
 import Navbar from "./components/Navbar"; // Import the Navbar
+import { Toaster } from "sonner";
 
 export default function App() {
   return (
     <Router>
       <Navbar /> {/* Add the Navbar component here */}
-      <main className="min-h-screen bg-slate-900 text-white">
+      <main className="min-h-screen bg-slate-900 text-white pt-16"> {/* Added pt-16 assuming navbar height */}
         {/* The Navbar might affect page layout, consider if main needs padding-top */}
         <Routes>
           <Route path="/" element={<LandingPage />} />
@@ -23,6 +24,7 @@ export default function App() {
           <Route path="/settings" element={<SettingsPage />} />
         </Routes>
       </main>
+      <Toaster richColors position="top-right" /> {/* Add Toaster here */}
     </Router>
   );
 }
