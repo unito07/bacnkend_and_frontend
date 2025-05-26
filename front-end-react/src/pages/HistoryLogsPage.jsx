@@ -17,6 +17,7 @@ function HistoryLogsPage() {
   const [newLogPath, setNewLogPath] = useState('');
   const [selectedLog, setSelectedLog] = useState(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  const [isFetchingDetail, setIsFetchingDetail] = useState(false); // For modal loading
 
   const fetchLogs = useCallback(async () => {
     setIsLoading(true);
@@ -109,9 +110,25 @@ function HistoryLogsPage() {
     }
   };
 
-  const openDetailModal = (log) => {
-    setSelectedLog(log);
-    setIsDetailModalOpen(true);
+  const openDetailModal = async (logSummary) => {
+    setIsFetchingDetail(true);
+    setSelectedLog(null); // Clear previous selection
+    setIsDetailModalOpen(true); // Open modal to show loading state
+    try {
+      const response = await fetch(`${API_BASE_URL}/logs/${logSummary.id}`);
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.detail || `Failed to fetch log details: ${response.status}`);
+      }
+      const fullLogData = await response.json();
+      setSelectedLog(fullLogData);
+    } catch (e) {
+      toast.error(`Failed to load log details: ${e.message}`);
+      // Optionally close modal or show error in modal:
+      // setIsDetailModalOpen(false); 
+    } finally {
+      setIsFetchingDetail(false);
+    }
   };
   
   const formatTimestamp = (isoString) => {
@@ -197,10 +214,10 @@ function HistoryLogsPage() {
                     </span>
                   </TableCell>
                   <TableCell>
-                    <Button variant="ghost" size="sm" onClick={() => openDetailModal(log)} className="mr-1 px-2">
+                    <Button variant="ghost" size="sm" onClick={() => openDetailModal(log)} className="mr-1 px-2" disabled={isFetchingDetail}>
                         <Eye className="h-4 w-4" />
                     </Button>
-                    <Button variant="ghost" size="sm" onClick={() => handleDeleteLog(log.id)} className="text-red-500 hover:text-red-700 px-2">
+                    <Button variant="ghost" size="sm" onClick={() => handleDeleteLog(log.id)} className="text-red-500 hover:text-red-700 px-2" disabled={isFetchingDetail}>
                         <Trash2 className="h-4 w-4" />
                     </Button>
                   </TableCell>
@@ -215,32 +232,44 @@ function HistoryLogsPage() {
         <Dialog open={isDetailModalOpen} onOpenChange={setIsDetailModalOpen}>
           <DialogContent className="sm:max-w-2xl">
             <DialogHeader>
-              <DialogTitle>Log Details: {selectedLog.id}</DialogTitle>
-              <DialogDescription>
-                Timestamp: {formatTimestamp(selectedLog.timestamp)}
-              </DialogDescription>
+              <DialogTitle>Log Details: {selectedLog ? selectedLog.id : 'Loading...'}</DialogTitle>
+              {selectedLog && (
+                <DialogDescription>
+                  Timestamp: {formatTimestamp(selectedLog.timestamp)}
+                </DialogDescription>
+              )}
             </DialogHeader>
-            <ScrollArea className="max-h-[60vh] mt-4 pr-6">
-              <div className="grid gap-2 text-sm">
-                <div className="grid grid-cols-[150px_1fr] items-start"><strong>Scrape Type:</strong> {selectedLog.scrapeType}</div>
-                <div className="grid grid-cols-[150px_1fr] items-start"><strong>Target URL:</strong> <span className="break-all">{selectedLog.targetUrl}</span></div>
-                <div className="grid grid-cols-[150px_1fr] items-start"><strong>Status:</strong> {selectedLog.status}</div>
-                {selectedLog.errorMessage && (
-                  <div className="grid grid-cols-[150px_1fr] items-start"><strong>Error:</strong> <pre className="whitespace-pre-wrap break-all bg-muted p-2 rounded-md">{selectedLog.errorMessage}</pre></div>
-                )}
-                {selectedLog.dataPreview && (
-                  <div className="grid grid-cols-[150px_1fr] items-start"><strong>Data Preview:</strong> <pre className="whitespace-pre-wrap break-all bg-muted p-2 rounded-md">{selectedLog.dataPreview}</pre></div>
-                )}
-                 {selectedLog.requestPayload && (
-                  <div className="grid grid-cols-[150px_1fr] items-start"><strong>Request Payload:</strong> 
-                    <pre className="whitespace-pre-wrap break-all bg-muted p-2 rounded-md text-xs">
-                      {JSON.stringify(selectedLog.requestPayload, null, 2)}
-                    </pre>
+            <ScrollArea className="max-h-[70vh] mt-4 pr-6">
+              {isFetchingDetail && <p>Loading details...</p>}
+              {!isFetchingDetail && selectedLog && (
+                <div className="grid gap-3 text-sm">
+                  <div className="grid grid-cols-[150px_1fr] items-start"><strong>Scrape Type:</strong> {selectedLog.scrapeType}</div>
+                  <div className="grid grid-cols-[150px_1fr] items-start"><strong>Target URL:</strong> <span className="break-all">{selectedLog.targetUrl}</span></div>
+                  <div className="grid grid-cols-[150px_1fr] items-start"><strong>Status:</strong> {selectedLog.status}</div>
+                  {selectedLog.errorMessage && (
+                    <div className="grid grid-cols-[150px_1fr] items-start"><strong>Error:</strong> <pre className="whitespace-pre-wrap break-all bg-muted p-2 rounded-md text-xs">{selectedLog.errorMessage}</pre></div>
+                  )}
+                  {/* Removed dataPreview as scrapedData is more comprehensive */}
+                  {/* {selectedLog.dataPreview && (
+                    <div className="grid grid-cols-[150px_1fr] items-start"><strong>Data Preview:</strong> <pre className="whitespace-pre-wrap break-all bg-muted p-2 rounded-md">{selectedLog.dataPreview}</pre></div>
+                  )} */}
+                  {selectedLog.requestPayload && (
+                    <div className="grid grid-cols-[150px_1fr] items-start"><strong>Request Payload:</strong> 
+                      <pre className="whitespace-pre-wrap break-all bg-muted p-2 rounded-md text-xs">
+                        {JSON.stringify(selectedLog.requestPayload, null, 2)}
+                      </pre>
+                    </div>
+                  )}
+                  {/* Display Scraped Data */}
+                  <div className="col-span-full mt-2">
+                    <h4 className="font-semibold mb-1">Scraped Data:</h4>
+                    {renderScrapedDataDisplay(selectedLog.scrapedData, selectedLog.requestPayload, selectedLog.scrapeType)}
                   </div>
-                )}
-              </div>
+                </div>
+              )}
+              {!isFetchingDetail && !selectedLog && <p>Could not load log details.</p>}
             </ScrollArea>
-            <DialogFooter>
+            <DialogFooter className="mt-4">
               <Button onClick={() => setIsDetailModalOpen(false)}>Close</Button>
             </DialogFooter>
           </DialogContent>
@@ -249,5 +278,116 @@ function HistoryLogsPage() {
     </div>
   );
 }
+
+// Helper function to render scraped data (can be moved outside if preferred)
+const renderScrapedDataDisplay = (scrapedData, requestPayload, scrapeType) => {
+  if (scrapedData === null || typeof scrapedData === 'undefined') {
+    return <p className="text-muted-foreground text-xs">No scraped data available for this log entry.</p>;
+  }
+
+  // Handle static scrape (data is likely HTML string)
+  if (scrapeType === 'Static' && typeof scrapedData === 'string') {
+    return (
+      <ScrollArea className="h-[300px] w-full rounded-md border bg-muted">
+        <pre className="p-2 text-xs">{scrapedData}</pre>
+      </ScrollArea>
+    );
+  }
+
+  // Handle dynamic scrape (data is likely an array of objects)
+  if (scrapeType === 'Dynamic' && Array.isArray(scrapedData)) {
+    if (scrapedData.length === 0) {
+      return <p className="text-muted-foreground text-xs">Scraped data is empty.</p>;
+    }
+
+    let columns = []; // This will act as fieldOrder
+    if (requestPayload && Array.isArray(requestPayload.custom_fields) && requestPayload.custom_fields.length > 0) {
+      columns = requestPayload.custom_fields.map(field => field.name);
+    } else if (scrapedData.length > 0 && typeof scrapedData[0] === 'object' && scrapedData[0] !== null) {
+      columns = Object.keys(scrapedData[0]);
+    }
+
+    // --- Start: Filtering logic from Results.jsx ---
+    let dataToDisplay = [...scrapedData]; // Make a copy to filter
+
+    if (columns.length > 0 && dataToDisplay.length > 0) {
+      const commonKeyNames = ["name", "title", "product", "item", "heading", "header"];
+      let identifiedKeyField = null;
+
+      for (const fieldNameFromOrder of columns) { // 'columns' is our fieldOrder here
+        if (commonKeyNames.includes(fieldNameFromOrder.toLowerCase())) {
+          // Check if the first data item actually has this property
+          if (dataToDisplay[0].hasOwnProperty(fieldNameFromOrder)) {
+            identifiedKeyField = fieldNameFromOrder;
+            break; 
+          }
+        }
+      }
+
+      if (identifiedKeyField) {
+        dataToDisplay = dataToDisplay.filter(row => {
+          const keyValue = row[identifiedKeyField];
+          return keyValue !== null && keyValue !== undefined && String(keyValue).trim() !== '';
+        });
+      }
+    }
+    // --- End: Filtering logic from Results.jsx ---
+
+    if (dataToDisplay.length === 0 && scrapedData.length > 0) {
+        // This means filtering removed all rows, show a message or the original data as JSON
+        return <p className="text-muted-foreground text-xs">All scraped data rows were filtered out (e.g., missing key identifier). <pre className="mt-1 p-1 bg-gray-800 text-gray-300 text-xs rounded">{JSON.stringify(scrapedData, null, 2)}</pre></p>;
+    }
+    
+    if (dataToDisplay.length === 0) { // If still empty after potential filtering
+        return <p className="text-muted-foreground text-xs">Scraped data is empty or all rows were filtered.</p>;
+    }
+
+
+    // Determine display columns based on the first item of the potentially filtered data
+    // This ensures columns are relevant to what's being displayed.
+    const displayTableColumns = (columns.length > 0 && dataToDisplay[0]) 
+        ? columns.filter(col => dataToDisplay[0].hasOwnProperty(col))
+        : (dataToDisplay[0] ? Object.keys(dataToDisplay[0]) : []);
+
+
+    if (displayTableColumns.length === 0) { // Fallback if no columns could be determined but data exists
+        return (
+            <ScrollArea className="h-[300px] w-full rounded-md border bg-muted">
+             <pre className="p-2 text-xs">{JSON.stringify(dataToDisplay, null, 2)}</pre>
+            </ScrollArea>
+        );
+    }
+    
+    return (
+      <ScrollArea className="h-[300px] w-full rounded-md border">
+        <Table className="text-xs">
+          <TableHeader>
+            <TableRow>
+              {displayTableColumns.map(colName => <TableHead key={colName}>{colName}</TableHead>)}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {dataToDisplay.map((row, rowIndex) => (
+              <TableRow key={rowIndex}>
+                {displayTableColumns.map(colName => (
+                  <TableCell key={colName} className="max-w-[200px] truncate" title={String(row[colName])}>
+                    {row[colName] === null || typeof row[colName] === 'undefined' ? 'N/A' : String(row[colName])}
+                  </TableCell>
+                ))}
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </ScrollArea>
+    );
+  }
+
+  // Fallback for other data types or structures
+  return (
+    <ScrollArea className="h-[300px] w-full rounded-md border bg-muted">
+      <pre className="p-2 text-xs">{JSON.stringify(scrapedData, null, 2)}</pre>
+    </ScrollArea>
+  );
+};
 
 export default HistoryLogsPage;

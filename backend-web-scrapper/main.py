@@ -40,6 +40,7 @@ class LogEntryResponse(BaseModel):
     dataFilePath: Optional[str] = None
     errorMessage: Optional[str] = None
     requestPayload: Optional[Dict[str, Any]] = None
+    scrapedData: Optional[Any] = None # Added to store actual scraped data
 
 
 # --- Logging Endpoints ---
@@ -91,19 +92,47 @@ async def scrape(url: str):
         "targetUrl": url,
         "status": "Pending",
         "errorMessage": None,
-        "dataPreview": None
+        "dataPreview": None,
+        "scrapedData": None  # Initialize scrapedData
     }
+    actual_scraped_data = None
     try:
-        data = scrape_data(url)
-        log_payload["status"] = "Success"
-        # log_payload["dataPreview"] = str(data)[:200] + "..." if data else None # Example preview
-        return data
-    except Exception as e:
-        print(f"Error during scraping: {e}")
+        actual_scraped_data = await asyncio.to_thread(scrape_data, url) # Ensure async call if scrape_data is sync
+
+        if isinstance(actual_scraped_data, dict) and "error" in actual_scraped_data:
+            error_message_str = str(actual_scraped_data["error"])
+            log_payload["status"] = "Failed"
+            log_payload["errorMessage"] = error_message_str
+            
+            status_code_for_exception = 500 # Default
+            if "404" in error_message_str:
+                status_code_for_exception = 404
+            elif "403" in error_message_str:
+                status_code_for_exception = 403
+            elif "401" in error_message_str:
+                status_code_for_exception = 401
+            # Add other specific HTTP error codes if needed
+            
+            # actual_scraped_data (the error dict) will be logged in finally block.
+            # Raise HTTPException to make the endpoint return an error status.
+            raise HTTPException(status_code=status_code_for_exception, detail=error_message_str)
+        else:
+            # No "error" key in the returned dict, or not a dict, assume success
+            log_payload["status"] = "Success"
+            # log_payload["dataPreview"] = str(actual_scraped_data)[:200] + "..." if actual_scraped_data else None
+        
+        return actual_scraped_data # This line is reached only on success
+
+    except HTTPException: # Re-raise if it's an HTTPException (e.g., from our check above)
+        raise
+    except Exception as e: # Catch other unexpected errors
+        print(f"Unexpected error during static scraping: {e}")
         log_payload["status"] = "Failed"
         log_payload["errorMessage"] = str(e)
-        raise HTTPException(status_code=500, detail=str(e))
+        actual_scraped_data = {"error": f"Unexpected server error: {str(e)}"} # Ensure error is logged
+        raise HTTPException(status_code=500, detail=f"Unexpected server error: {str(e)}")
     finally:
+        log_payload["scrapedData"] = actual_scraped_data # Store the actual data or error dict
         await asyncio.to_thread(log_manager.create_log_entry, log_payload)
 
 
@@ -127,8 +156,10 @@ async def scrape_dynamic(
         "status": "Pending",
         "errorMessage": None,
         "dataPreview": None,
-        "requestPayload": payload
+        "requestPayload": payload,
+        "scrapedData": None # Initialize scrapedData
     }
+    actual_scraped_results = None
     try:
         set_scraper_status(True)  # Reset flag for new scrape
         url = payload["url"]
@@ -138,7 +169,8 @@ async def scrape_dynamic(
         max_scrolls = payload.get("max_scrolls", 5)
         
         # Run the synchronous scraping function in a separate thread
-        data = await asyncio.to_thread(
+        # Renamed 'data' to 'data_from_scraper' to avoid confusion with 'actual_scraped_results'
+        data_from_scraper = await asyncio.to_thread(
             scrape_dynamic_data,
             url,
             container_selector,
@@ -146,6 +178,7 @@ async def scrape_dynamic(
             enable_scrolling=enable_scrolling,
             max_scrolls=max_scrolls
         )
+        actual_scraped_results = data_from_scraper # This is the list of dicts
         
         # Check if scraping was cancelled
         if not get_scraper_status(): # If status is False, it means it was cancelled
@@ -154,23 +187,22 @@ async def scrape_dynamic(
             # For now, we'll let it proceed to finally, but not raise an error
             # and the data might be partial or empty.
             print("Dynamic scraping was cancelled.")
-            # return {"status": "Scraping cancelled", "results": data if data else []} # Or raise HTTPException
+            # actual_scraped_results might be partial here
         else:
             log_payload["status"] = "Success"
-            # log_payload["dataPreview"] = f"{len(data)} items scraped" if isinstance(data, list) else "Data scraped"
+            # log_payload["dataPreview"] = f"{len(actual_scraped_results)} items scraped" if isinstance(actual_scraped_results, list) else "Data scraped"
 
-        return {"results": data}
+        return {"results": actual_scraped_results}
     except Exception as e:
         print(f"Error during dynamic scraping: {e}")
         log_payload["status"] = "Failed"
         log_payload["errorMessage"] = str(e)
+        # actual_scraped_results remains None
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         # Ensure scraper status is reset if it was still true (e.g. successful completion)
         # If it was cancelled, it's already false.
-        # This might be redundant if set_scraper_status(False) is called at the end of scrape_dynamic_data
-        # but good for safety.
-        # set_scraper_status(False) # Let's assume scrape_dynamic_data handles its own final state or cancellation signal.
+        log_payload["scrapedData"] = actual_scraped_results # Store the actual list of results
         await asyncio.to_thread(log_manager.create_log_entry, log_payload)
 
 
