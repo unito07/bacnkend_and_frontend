@@ -4,29 +4,37 @@ import FieldRow from "./FieldRow";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox"; // Assuming Checkbox is available
+import { Checkbox } from "@/components/ui/checkbox";
+import { useScraperForm } from "../contexts/ScraperFormContext"; // Import the hook
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
 export default function DynamicScraper() {
-  const [url, setUrl] = useState("");
-  const [containerSelector, setContainerSelector] = useState("");
-  const [enableScrolling, setEnableScrolling] = useState(false);
-  const [maxScrolls, setMaxScrolls] = useState(5);
-  const [fields, setFields] = useState([{ name: "", selector: "" }]);
+  const { formData, setFormData } = useScraperForm(); // Use the context
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState("");
 
   const handleFieldChange = (idx, key, value) => {
-    setFields(fields =>
-      fields.map((f, i) => (i === idx ? { ...f, [key]: value } : f))
-    );
+    setFormData(prev => ({
+      ...prev,
+      dynamicFields: prev.dynamicFields.map((f, i) => (i === idx ? { ...f, [key]: value } : f)),
+    }));
   };
 
-  const addField = () => setFields([...fields, { name: "", selector: "" }]);
-  const removeField = idx =>
-    setFields(fields => fields.length > 1 ? fields.filter((_, i) => i !== idx) : fields);
+  const addField = () => {
+    setFormData(prev => ({
+      ...prev,
+      dynamicFields: [...prev.dynamicFields, { name: "", selector: "" }],
+    }));
+  };
+
+  const removeField = idx => {
+    setFormData(prev => ({
+      ...prev,
+      dynamicFields: prev.dynamicFields.length > 1 ? prev.dynamicFields.filter((_, i) => i !== idx) : prev.dynamicFields,
+    }));
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -35,11 +43,11 @@ export default function DynamicScraper() {
     setResult(null);
     try {
       const payload = {
-        url,
-        container_selector: containerSelector,
-        custom_fields: fields.filter(f => f.name && f.selector).map(f => ({ ...f, name: f.name.trim() })),
-        enable_scrolling: enableScrolling,
-        max_scrolls: Number(maxScrolls)
+        url: formData.dynamicUrl,
+        container_selector: formData.dynamicContainerSelector,
+        custom_fields: formData.dynamicFields.filter(f => f.name && f.selector).map(f => ({ ...f, name: f.name.trim() })),
+        enable_scrolling: formData.dynamicEnableScrolling,
+        max_scrolls: Number(formData.dynamicMaxScrolls)
       };
       const res = await fetch(`${API_URL}/scrape-dynamic`, {
         method: "POST",
@@ -70,7 +78,7 @@ export default function DynamicScraper() {
     setLoading(false); // Ensure loading is set to false
   };
 
-  const fieldOrder = fields.filter(f => f.name && f.selector).map(f => f.name.trim()); // Added .trim() here
+  const fieldOrder = formData.dynamicFields.filter(f => f.name && f.selector).map(f => f.name.trim());
 
   return (
     <section className="p-6 bg-slate-800 rounded-lg shadow-md my-8">
@@ -81,8 +89,8 @@ export default function DynamicScraper() {
           <Input
             id="dynamic-url"
             type="text"
-            value={url}
-            onChange={e => setUrl(e.target.value)}
+            value={formData.dynamicUrl}
+            onChange={e => setFormData(prev => ({ ...prev, dynamicUrl: e.target.value }))}
             placeholder="https://example.com"
             required
             className="mt-1 bg-slate-700 text-white border-slate-600 focus:ring-sky-500 focus:border-sky-500"
@@ -93,8 +101,8 @@ export default function DynamicScraper() {
           <Input
             id="container-selector"
             type="text"
-            value={containerSelector}
-            onChange={e => setContainerSelector(e.target.value)}
+            value={formData.dynamicContainerSelector}
+            onChange={e => setFormData(prev => ({ ...prev, dynamicContainerSelector: e.target.value }))}
             placeholder=".item-container"
             required
             className="mt-1 bg-slate-700 text-white border-slate-600 focus:ring-sky-500 focus:border-sky-500"
@@ -104,21 +112,21 @@ export default function DynamicScraper() {
           <div className="flex items-center space-x-2">
             <Checkbox
               id="enable-scrolling"
-              checked={enableScrolling}
-              onCheckedChange={setEnableScrolling}
+              checked={formData.dynamicEnableScrolling}
+              onCheckedChange={checked => setFormData(prev => ({ ...prev, dynamicEnableScrolling: checked }))}
               className="border-slate-600 data-[state=checked]:bg-sky-600 data-[state=checked]:text-white"
             />
             <Label htmlFor="enable-scrolling" className="text-slate-300">Enable Scrolling</Label>
           </div>
-          {enableScrolling && (
+          {formData.dynamicEnableScrolling && (
             <div>
               <Label htmlFor="max-scrolls" className="text-slate-300">Max Scrolls</Label>
               <Input
                 id="max-scrolls"
                 type="number"
                 min="1"
-                value={maxScrolls}
-                onChange={e => setMaxScrolls(parseInt(e.target.value, 10) || 1)}
+                value={formData.dynamicMaxScrolls}
+                onChange={e => setFormData(prev => ({ ...prev, dynamicMaxScrolls: parseInt(e.target.value, 10) || 1 }))}
                 className="mt-1 w-24 bg-slate-700 text-white border-slate-600 focus:ring-sky-500 focus:border-sky-500"
               />
             </div>
@@ -127,14 +135,14 @@ export default function DynamicScraper() {
         <div>
           <Label className="text-slate-300 mb-2 block">Fields to Extract</Label>
           <div className="space-y-3">
-            {fields.map((field, idx) => (
+            {formData.dynamicFields.map((field, idx) => (
               <FieldRow
                 key={idx}
                 name={field.name}
                 selector={field.selector}
                 onChange={(key, value) => handleFieldChange(idx, key, value)}
                 onRemove={() => removeField(idx)}
-                canRemove={fields.length > 1}
+                canRemove={formData.dynamicFields.length > 1}
               />
             ))}
           </div>
@@ -144,7 +152,7 @@ export default function DynamicScraper() {
         </div>
         <Button
           type="submit"
-          disabled={loading || !url || !containerSelector || fields.some(f => !f.name || !f.selector)}
+          disabled={loading || !formData.dynamicUrl || !formData.dynamicContainerSelector || formData.dynamicFields.some(f => !f.name || !f.selector)}
           className="w-full bg-sky-600 hover:bg-sky-700"
         >
           {loading ? "Scraping..." : "Scrape"}

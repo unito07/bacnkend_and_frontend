@@ -3,11 +3,12 @@ import Results from "./Results";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { useScraperForm } from "../contexts/ScraperFormContext"; // Import the hook
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
 export default function StaticScraper() {
-  const [url, setUrl] = useState("");
+  const { formData, setFormData } = useScraperForm(); // Use the context
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState("");
@@ -18,7 +19,7 @@ export default function StaticScraper() {
     setError("");
     setResult(null);
     try {
-      const res = await fetch(`${API_URL}/scrape?url=${encodeURIComponent(url)}`);
+      const res = await fetch(`${API_URL}/scrape?url=${encodeURIComponent(formData.staticUrl)}`); // Use formData.staticUrl
       if (!res.ok) throw new Error(`Failed to fetch: ${res.statusText}`);
       const data = await res.json();
       setResult(data);
@@ -37,14 +38,14 @@ export default function StaticScraper() {
           <Input
             id="static-url"
             type="text"
-            value={url}
-            onChange={e => setUrl(e.target.value)}
+            value={formData.staticUrl} // Use formData.staticUrl
+            onChange={e => setFormData(prev => ({ ...prev, staticUrl: e.target.value }))} // Update context
             placeholder="https://example.com"
             required
             className="mt-1 bg-slate-700 text-white border-slate-600 focus:ring-sky-500 focus:border-sky-500"
           />
         </div>
-        <Button type="submit" disabled={loading || !url} className="w-full bg-sky-600 hover:bg-sky-700">
+        <Button type="submit" disabled={loading || !formData.staticUrl} className="w-full bg-sky-600 hover:bg-sky-700"> {/* Use formData.staticUrl */}
           {loading ? "Scraping..." : "Scrape"}
         </Button>
       </form>
