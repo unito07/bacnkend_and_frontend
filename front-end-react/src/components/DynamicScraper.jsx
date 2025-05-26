@@ -55,6 +55,21 @@ export default function DynamicScraper() {
     setLoading(false);
   };
 
+  const handleCancel = async () => {
+    console.log("Cancel button clicked");
+    try {
+      const res = await fetch(`${API_URL}/stop-scraper`, { method: "POST" });
+      if (!res.ok) throw new Error(`Failed to send stop signal: ${res.statusText}`);
+      const data = await res.json();
+      console.log("Stop signal response:", data);
+      setError("Scraping process cancelled by user.");
+    } catch (err) {
+      console.error("Error sending stop signal:", err);
+      setError("Error trying to cancel: " + err.message + ". Scraper might still be running.");
+    }
+    setLoading(false); // Ensure loading is set to false
+  };
+
   const fieldOrder = fields.filter(f => f.name && f.selector).map(f => f.name.trim()); // Added .trim() here
 
   return (
@@ -134,6 +149,16 @@ export default function DynamicScraper() {
         >
           {loading ? "Scraping..." : "Scrape"}
         </Button>
+        {loading && (
+          <Button
+            type="button"
+            onClick={handleCancel}
+            variant="destructive" // Uses the destructive variant for red styling
+            className="w-full mt-2" // Added margin top for spacing
+          >
+            Cancel Scraping
+          </Button>
+        )}
       </form>
       {error && <div className="mt-4 text-red-400 bg-red-900/30 p-3 rounded-md">{error}</div>}
       {result && <Results data={result} fieldOrder={fieldOrder.length > 0 ? fieldOrder : null} />}

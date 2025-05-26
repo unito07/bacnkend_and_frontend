@@ -1,6 +1,7 @@
+import asyncio # Added for to_thread
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from dynamic_web_scrapper import scrape_data, scrape_dynamic_data  # Fixed import for package context
+from dynamic_web_scrapper import scrape_data, scrape_dynamic_data, set_scraper_status  # Added set_scraper_status
 
 app = FastAPI()
 
@@ -48,12 +49,16 @@ async def scrape_dynamic(
     }
     """
     try:
+        set_scraper_status(True)  # Reset flag for new scrape
         url = payload["url"]
         container_selector = payload["container_selector"]
         custom_fields = payload["custom_fields"]
         enable_scrolling = payload.get("enable_scrolling", False)
         max_scrolls = payload.get("max_scrolls", 5)
-        data = scrape_dynamic_data(
+        
+        # Run the synchronous scraping function in a separate thread
+        data = await asyncio.to_thread(
+            scrape_dynamic_data,
             url,
             container_selector,
             custom_fields,
@@ -64,6 +69,12 @@ async def scrape_dynamic(
     except Exception as e:
         print(f"Error during dynamic scraping: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/stop-scraper")
+async def stop_scraper_endpoint():
+    """Endpoint to signal the scraper to stop."""
+    set_scraper_status(False)
+    return {"status": "stop signal sent"}
 
 if __name__ == "__main__":
     import uvicorn
