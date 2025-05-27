@@ -157,16 +157,18 @@ function HistoryLogsPage() {
     if (!isoString) return 'N/A';
     try {
       const options = {
-        timeZone: 'UTC',
+        // timeZone: 'UTC', // Removed to use local time zone
         year: 'numeric',
         month: 'short',
         day: 'numeric',
         hour: 'numeric',
         minute: 'numeric',
         second: 'numeric',
+        // hour12: true, // Uncomment if AM/PM format is strictly needed and not default
       };
       return new Intl.DateTimeFormat('en-US', options).format(new Date(isoString));
     } catch (e) {
+      console.error("Error formatting timestamp:", e, "Original string:", isoString);
       return isoString; // Return original if parsing fails
     }
   };
