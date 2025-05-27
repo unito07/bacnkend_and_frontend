@@ -71,23 +71,66 @@ def create_log_entry(log_data: Dict[str, Any]) -> Dict[str, Any]:
     except Exception as e:
         return {"error": f"Failed to create log entry: {str(e)}"}
 
-def get_all_log_entries() -> List[Dict[str, Any]]:
-    """Retrieves all log entries."""
+def get_all_log_entries(start_date: Optional[str] = None, end_date: Optional[str] = None) -> List[Dict[str, Any]]:
+    """Retrieves all log entries, optionally filtered by date range."""
     logs_dir = get_log_storage_path()
     if not logs_dir.exists():
         return []
     
-    log_entries = []
+    all_log_entries = []
     for log_file in logs_dir.glob("*.json"):
         try:
             with open(log_file, "r") as f:
-                log_entries.append(json.load(f))
+                all_log_entries.append(json.load(f))
         except Exception:
             # Skip corrupted or unreadable files
             continue 
+    
+    filtered_logs = []
+    start_dt = None
+    end_dt = None
+
+    if start_date:
+        try:
+            start_dt = datetime.fromisoformat(start_date.replace('Z', '+00:00')) # Handle 'Z' for UTC
+        except ValueError:
+            # Handle cases where frontend might send non-ISO format, or just ignore filter
+            print(f"Warning: Could not parse start_date: {start_date}")
+
+    if end_date:
+        try:
+            end_dt = datetime.fromisoformat(end_date.replace('Z', '+00:00')) # Handle 'Z' for UTC
+        except ValueError:
+            print(f"Warning: Could not parse end_date: {end_date}")
+
+    for log in all_log_entries:
+        log_timestamp_str = log.get("timestamp")
+        if not log_timestamp_str:
+            continue
+
+        try:
+            log_dt = datetime.fromisoformat(log_timestamp_str.replace('Z', '+00:00'))
+        except ValueError:
+            print(f"Warning: Could not parse log timestamp: {log_timestamp_str}")
+            continue
+
+        include_log = True
+        if start_dt:
+            # Compare only date part for start_date to include all logs from that day
+            if log_dt.date() < start_dt.date():
+                include_log = False
+        
+        if include_log and end_dt:
+            # Compare only date part for end_date to include all logs up to the end of that day
+            if log_dt.date() > end_dt.date():
+                include_log = False
+        
+        if include_log:
+            filtered_logs.append(log)
+
     # Sort by timestamp, newest first
-    log_entries.sort(key=lambda x: x.get("timestamp", ""), reverse=True)
-    return log_entries
+    filtered_logs.sort(key=lambda x: x.get("timestamp", ""), reverse=True)
+    return filtered_logs
 
 def get_log_entry(log_id: str) -> Optional[Dict[str, Any]]:
     """Retrieves a specific log entry by its ID."""

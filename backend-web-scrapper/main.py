@@ -57,8 +57,11 @@ async def get_log_path():
     return {"path": str(path)}
 
 @app.get("/logs", summary="Get All Log Entries", response_model=List[LogEntryResponse])
-async def get_all_logs():
-    logs = await asyncio.to_thread(log_manager.get_all_log_entries)
+async def get_all_logs(
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None
+):
+    logs = await asyncio.to_thread(log_manager.get_all_log_entries, start_date, end_date)
     return logs
 
 @app.get("/logs/{log_id}", summary="Get Specific Log Entry", response_model=Optional[LogEntryResponse])

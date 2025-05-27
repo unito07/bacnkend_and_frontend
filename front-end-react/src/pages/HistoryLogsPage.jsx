@@ -6,6 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Trash2, RotateCw, FolderCog, Eye, XCircle } from 'lucide-react';
+import DateRangePicker from '@/components/custom/DateRangePicker'; // Import the new component
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
@@ -18,12 +19,26 @@ function HistoryLogsPage() {
   const [selectedLog, setSelectedLog] = useState(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [isFetchingDetail, setIsFetchingDetail] = useState(false); // For modal loading
+  const [filterStartDate, setFilterStartDate] = useState(null);
+  const [filterEndDate, setFilterEndDate] = useState(null);
 
   const fetchLogs = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
-      const response = await fetch(`${API_BASE_URL}/logs`);
+      let url = `${API_BASE_URL}/logs`;
+      const params = new URLSearchParams();
+      if (filterStartDate) {
+        params.append('start_date', filterStartDate.toISOString());
+      }
+      if (filterEndDate) {
+        params.append('end_date', filterEndDate.toISOString());
+      }
+      if (params.toString()) {
+        url += `?${params.toString()}`;
+      }
+
+      const response = await fetch(url);
       if (!response.ok) {
         const errData = await response.json();
         throw new Error(errData.detail || `HTTP error! status: ${response.status}`);
@@ -36,7 +51,7 @@ function HistoryLogsPage() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [filterStartDate, filterEndDate]); // Add filter dates to dependencies
 
   const fetchLogPath = useCallback(async () => {
     try {
@@ -54,6 +69,12 @@ function HistoryLogsPage() {
     fetchLogs();
     fetchLogPath();
   }, [fetchLogs, fetchLogPath]);
+
+  const handleDateRangeApply = (start, end) => {
+    setFilterStartDate(start);
+    setFilterEndDate(end);
+    // fetchLogs will be called via useEffect due to dependency change
+  };
 
   const handleSetLogPath = async () => {
     if (!newLogPath.trim()) {
@@ -165,10 +186,11 @@ function HistoryLogsPage() {
         </p>
       </div>
 
-      <div className="flex justify-between items-center mb-4">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-4">
         <h2 className="text-2xl font-semibold">Scrape History</h2>
-        <div>
-          <Button onClick={fetchLogs} variant="outline" size="sm" className="mr-2" disabled={isLoading}>
+        <div className="flex flex-wrap gap-2">
+          <DateRangePicker onApply={handleDateRangeApply} initialStartDate={filterStartDate} initialEndDate={filterEndDate} />
+          <Button onClick={fetchLogs} variant="outline" size="sm" disabled={isLoading}>
             <RotateCw className={`mr-2 h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} /> Refresh
           </Button>
           <Button onClick={handleClearAllLogs} variant="destructive" size="sm" disabled={isLoading || logs.length === 0}>
