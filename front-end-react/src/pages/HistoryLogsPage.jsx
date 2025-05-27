@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Trash2, RotateCw, FolderCog, Eye, XCircle } from 'lucide-react';
 import DateRangePicker from '@/components/custom/DateRangePicker'; // Import the new component
+import { format } from 'date-fns'; // Import format
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
@@ -29,10 +30,10 @@ function HistoryLogsPage() {
       let url = `${API_BASE_URL}/logs`;
       const params = new URLSearchParams();
       if (filterStartDate) {
-        params.append('start_date', filterStartDate.toISOString());
+        params.append('start_date', format(filterStartDate, 'yyyy-MM-dd'));
       }
       if (filterEndDate) {
-        params.append('end_date', filterEndDate.toISOString());
+        params.append('end_date', format(filterEndDate, 'yyyy-MM-dd'));
       }
       if (params.toString()) {
         url += `?${params.toString()}`;

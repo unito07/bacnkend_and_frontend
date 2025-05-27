@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon } from 'lucide-react';
-import { format, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isWithinInterval, addDays } from 'date-fns';
+import { format, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isWithinInterval, addDays, endOfDay } from 'date-fns';
 import { cn } from '@/lib/utils'; // Assuming cn utility for tailwind class merging
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"; // Import Dialog components
 
@@ -15,6 +15,10 @@ const DateRangePicker = ({ onApply, initialStartDate, initialEndDate }) => {
   // No need for calendarRef and handleClickOutside if using Shadcn Dialog
 
   const handleDateClick = (day) => {
+    if (!isWithinInterval(day, { start: startOfMonth(focusedDate), end: endOfMonth(focusedDate) })) {
+      return;
+    }
+
     if (!startDate || (startDate && endDate)) {
       // If clicking the start date again, deselect it
       if (isSameDay(day, startDate)) {
@@ -80,14 +84,33 @@ const DateRangePicker = ({ onApply, initialStartDate, initialEndDate }) => {
   };
 
   const handleApply = () => {
-    if (startDate && endDate) {
-      onApply(startDate, endDate);
-      setIsCalendarOpen(false);
-    } else {
-      // Handle case where only one date is selected or no dates
-      onApply(startDate, startDate); // If only one date, treat as single day range
-      setIsCalendarOpen(false);
+    let finalStartDate = null;
+    let finalEndDate = null;
+
+    if (selectedTab === "Today") {
+      const today = new Date();
+      finalStartDate = today;
+      finalEndDate = today;
+    } else if (selectedTab === "Yesterday") {
+      const yesterday = addDays(new Date(), -1);
+      finalStartDate = yesterday;
+      finalEndDate = yesterday;
+    } else if (selectedTab === "Custom") {
+      if (startDate && endDate) {
+        finalStartDate = startDate;
+        finalEndDate = endDate;
+      } else if (startDate) {
+        finalStartDate = startDate;
+        finalEndDate = startDate;
+      }
     }
+
+    if (finalStartDate && finalEndDate) {
+      onApply(finalStartDate, endOfDay(finalEndDate));
+    } else {
+      onApply(null, null);
+    }
+    setIsCalendarOpen(false);
   };
 
   const handleCancel = () => {
@@ -101,9 +124,7 @@ const DateRangePicker = ({ onApply, initialStartDate, initialEndDate }) => {
     setStartDate(today);
     setEndDate(today);
     setFocusedDate(today);
-    onApply(today, today);
-    setIsCalendarOpen(false); // Close dialog after selection
-    // setSelectedTab(null); // Removed: Do not reset selected tab
+    setSelectedTab("Today");
   };
 
   const handleYesterday = () => {
@@ -111,9 +132,7 @@ const DateRangePicker = ({ onApply, initialStartDate, initialEndDate }) => {
     setStartDate(yesterday);
     setEndDate(yesterday);
     setFocusedDate(yesterday);
-    onApply(yesterday, yesterday);
-    setIsCalendarOpen(false); // Close dialog after selection
-    // setSelectedTab(null); // Removed: Do not reset selected tab
+    setSelectedTab("Yesterday");
   };
 
   const displayRange = () => {
@@ -130,6 +149,7 @@ const DateRangePicker = ({ onApply, initialStartDate, initialEndDate }) => {
       setIsCalendarOpen(open);
       if (open && selectedTab === null) {
         setSelectedTab("Today"); // Set "Today" as default active tab when dialog opens
+        handleToday(); // Set dates for "Today" when dialog opens
       }
     }}>
       <DialogTrigger asChild>
@@ -151,21 +171,25 @@ const DateRangePicker = ({ onApply, initialStartDate, initialEndDate }) => {
             <Button
               variant={selectedTab === "Today" ? "default" : "outline"}
               size="sm"
-              onClick={() => { setSelectedTab("Today"); handleToday(); }}
+              onClick={() => { handleToday(); }}
             >
               Today
             </Button>
             <Button
               variant={selectedTab === "Yesterday" ? "default" : "outline"}
               size="sm"
-              onClick={() => { setSelectedTab("Yesterday"); handleYesterday(); }}
+              onClick={() => { handleYesterday(); }}
             >
               Yesterday
             </Button>
             <Button
               variant={selectedTab === "Custom" ? "default" : "outline"}
               size="sm"
-              onClick={() => setSelectedTab("Custom")}
+              onClick={() => {
+                setSelectedTab("Custom");
+                setStartDate(initialStartDate || null);
+                setEndDate(initialEndDate || null);
+              }}
             >
               Custom
             </Button>
