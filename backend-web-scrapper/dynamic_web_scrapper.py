@@ -10,6 +10,8 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException # Added
 from selenium_stealth import stealth
+from typing import Optional # Added
+from urllib.parse import urlparse, urlunparse, parse_qs, urlencode # Added for URL manipulation
 import pandas as pd
 import logging
 import random
@@ -390,10 +392,10 @@ class DynamicWebScraper:
             logger.error(f"Error in dynamic page scraping for {url}: {str(e)}")
             return pd.DataFrame()
 
-    def scrape_dynamic_with_pagination(self, url, container_selector, custom_fields, 
-                                     start_page, end_page, pagination_type, page_param=None, 
-                                     session_id=None, enable_scrolling=False, max_scrolls=5,
-                                     next_button_selector=None):
+    def scrape_dynamic_with_pagination(self, url, container_selector, custom_fields,
+                                     start_page, end_page, pagination_type, page_param=None,
+                                     enable_scrolling=False, max_scrolls=5,
+                                     next_button_selector=None): # Removed session_id
         """Scrape data from dynamic pages with pagination"""
         all_data = []
         current_url = url
@@ -406,7 +408,9 @@ class DynamicWebScraper:
 
             # Make initial request
             logger.info(f"Making initial request to {url}")
-            self.driver.get(url) # Assuming driver.get() here is less likely to be the main blocking point for cancellation compared to single page scrapes
+            self.driver.get(url)
+            current_url = self.driver.current_url # Update current_url after initial load
+            logger.info(f"Initial page loaded. Current URL: {current_url}")
             logger.info("Initial page load for pagination, waiting...")
             if not cancellable_sleep(random.uniform(2, 4)):
                 logger.info("Initial page load wait cancelled during pagination.")
@@ -437,33 +441,62 @@ class DynamicWebScraper:
                         logger.info("Stop signal received before navigating to next page. Exiting pagination loop.")
                         break
                     if pagination_type == "URL Parameter":
-                        # URL parameter pagination logic remains unchanged
-                        base_url = url.split('?')[0]
-                        params = {}
-                        if '?' in url:
-                            query_string = url.split('?')[1]
-                            for param in query_string.split('&'):
-                                if '=' in param:
-                                    key, value = param.split('=')
-                                    if not key.endswith('page'):
-                                        params[key] = value
+                        base_url_for_modification = current_url 
+                        parsed_url_obj = urlparse(base_url_for_modification)
+                        original_path = parsed_url_obj.path
+                        
+                        next_page_num_val = page + 1
+                        next_url_val = ""
 
-                        params[page_param] = str(page + 1)
-                        next_url = base_url + '?' + '&'.join([f"{k}={v}" for k, v in params.items()])
+                        # Regex to find (literal page_param)(digits)
+                        # User provides page_param like "page-" or "p"
+                        path_regex_pattern = re.compile(f"({re.escape(page_param)})(\\d+)")
+                        
+                        # Use a lambda for safer substitution with backreferences
+                        modified_path = path_regex_pattern.sub(lambda m: f"{m.group(1)}{next_page_num_val}", original_path)
 
-                        logger.info(f"Navigating to next page: {next_url}")
-                        self.driver.get(next_url)
-                        logger.info(f"Paginated page {page + 1} navigation, waiting...")
+                        if modified_path != original_path: # Path replacement was successful
+                            next_url_parts = list(parsed_url_obj)
+                            next_url_parts[2] = modified_path # path is at index 2
+                            next_url_val = urlunparse(next_url_parts)
+                            logger.info(f"Navigating to next page (Path Update): {next_url_val}")
+                        else: # Path replacement failed or not applicable, fall back to query parameter
+                            query_dict = parse_qs(parsed_url_obj.query)
+                            query_dict[page_param] = [str(next_page_num_val)] # Use the variable page_param
+                            new_query_str = urlencode(query_dict, doseq=True)
+                            
+                            next_url_parts = list(parsed_url_obj)
+                            next_url_parts[4] = new_query_str # query is at index 4
+                            next_url_val = urlunparse(next_url_parts)
+                            logger.info(f"Navigating to next page (Query Update): {next_url_val}")
+                        
+                        self.driver.get(next_url_val)
+                        current_url = self.driver.current_url # Update current_url after navigation
+                        
+                        logger.info(f"Paginated page {next_page_num_val} navigation complete. Current URL: {current_url}")
+                        logger.info(f"Waiting after navigating to page {next_page_num_val}...")
                         if not cancellable_sleep(random.uniform(2, 4)):
                             logger.info("Paginated page load wait cancelled.")
                             break # Exit pagination loop
 
                     elif pagination_type == "Next Button":
                         try:
-                            logger.info(f"Looking for next button using XPath: {next_button_selector}")
-                            selector = next_button_selector or "//li[contains(@class,'pagination-next')]//a[text()='Next']"
+                            final_selector = next_button_selector
+                            # Default selector if none provided by user for "Next Button"
+                            if not final_selector:
+                                final_selector = "li.next a, a.next, button.next, button[aria-label*='next' i], a[aria-label*='next' i], li.pagination-next a"
+                                logger.info(f"No 'Next Button' selector provided, using default CSS selectors: {final_selector}")
+                                find_by = By.CSS_SELECTOR
+                            # Determine if the selector is XPath or CSS
+                            elif final_selector.startswith("//") or final_selector.startswith("(//"):
+                                find_by = By.XPATH
+                                logger.info(f"Looking for next button using XPath: {final_selector}")
+                            else:
+                                find_by = By.CSS_SELECTOR
+                                logger.info(f"Looking for next button using CSS Selector: {final_selector}")
+                            
                             next_button = WebDriverWait(self.driver, 20).until(
-                                EC.element_to_be_clickable((By.XPATH, selector))
+                                EC.element_to_be_clickable((find_by, final_selector))
                             )
 
                             if not next_button.is_displayed():
@@ -477,10 +510,13 @@ class DynamicWebScraper:
 
                             # Wait for the container on the new page to be present
                             WebDriverWait(self.driver, 20).until(
-                                EC.presence_of_element_located((By.CSS_SELECTOR, container_selector))
+                                EC.presence_of_element_located((By.CSS_SELECTOR, container_selector)) # Or some other reliable indicator of page load
                             )
+                            current_url = self.driver.current_url # Update current_url after click and page load
+                            logger.info(f"Navigated via Next Button. Current URL: {current_url}")
+                            
                             logger.info("Post-click wait for animations...")
-                            if not cancellable_sleep(2):
+                            if not cancellable_sleep(2): # Consider making this wait duration configurable or dynamic
                                 logger.info("Post-click wait cancelled.")
                                 break # Exit pagination loop
 
@@ -510,6 +546,70 @@ class DynamicWebScraper:
             return final_df
         else:
             return pd.DataFrame()
+
+# New top-level wrapper function for pagination
+def scrape_dynamic_with_pagination(
+    url: str,
+    container_selector: str,
+    custom_fields: list,
+    start_page: int,
+    end_page: int,
+    pagination_type: str,
+    page_param: Optional[str] = None,
+    enable_scrolling: bool = False,
+    max_scrolls: int = 5,
+    next_button_selector: Optional[str] = None
+):
+    """
+    Scrapes dynamic data from multiple pages using pagination.
+    This is a top-level wrapper function.
+    """
+    global scraper_should_run # Required by set_scraper_status and get_scraper_status
+    set_scraper_status(True)
+    logger.info(f"Starting dynamic scrape with pagination for URL: {url}, Pages: {start_page}-{end_page}")
+    
+    # Instantiate DynamicWebScraper, similar to scrape_dynamic_data
+    # Using timeout=30 for consistency with scrape_dynamic_data. Other params use class defaults.
+    scraper = DynamicWebScraper(timeout=30) 
+    
+    df_results = pd.DataFrame() # Initialize to empty DataFrame
+
+    try:
+        if not scraper_should_run: # Early exit if cancelled before starting
+            logger.info(f"Scraping (pagination) for {url} cancelled before starting.")
+            return df_results
+
+        # The DynamicWebScraper.scrape_dynamic_with_pagination method handles its own driver lifecycle
+        # (setup and teardown).
+        df_results = scraper.scrape_dynamic_with_pagination( # Call the class method
+            url=url,
+            container_selector=container_selector,
+            custom_fields=custom_fields,
+            start_page=start_page,
+            end_page=end_page,
+            pagination_type=pagination_type,
+            page_param=page_param,
+            enable_scrolling=enable_scrolling,
+            max_scrolls=max_scrolls,
+            next_button_selector=next_button_selector
+            # session_id is not passed from main.py, so it will use its default (None) in the class method
+        )
+        
+        # Check status after the potentially long-running scraping operation
+        if not get_scraper_status():
+             logger.info(f"Scraping (pagination) for {url} was cancelled during operation.")
+             # df_results might contain partial data if cancelled mid-way.
+        else:
+            logger.info(f"Dynamic scrape with pagination complete for {url}. Found {len(df_results)} records.")
+            
+        return df_results
+
+    except Exception as e:
+        logger.error(f"Unhandled exception in top-level scrape_dynamic_with_pagination for {url}: {str(e)}")
+        # Ensure an empty DataFrame is returned on error, as expected by main.py
+        return pd.DataFrame() 
+    # No 'finally' block for driver cleanup here, as the class method handles it.
+
 
 def scrape_dynamic_data(
     url: str,

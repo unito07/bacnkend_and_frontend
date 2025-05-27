@@ -7,6 +7,12 @@ const initialScraperFormData = {
   dynamicEnableScrolling: false,
   dynamicMaxScrolls: 5,
   dynamicFields: [{ name: "", selector: "" }],
+  dynamicEnablePagination: false,
+  dynamicStartPage: 1,
+  dynamicEndPage: 5,
+  dynamicPaginationType: "Next Button", // Options: "Next Button", "URL Parameter"
+  dynamicPageParam: "page", // Default for URL parameter type
+  dynamicNextButtonSelector: "", // User will typically provide this
 };
 
 const initialScrapeOperationState = {

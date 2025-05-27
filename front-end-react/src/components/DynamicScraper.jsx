@@ -56,7 +56,14 @@ export default function DynamicScraper() {
         container_selector: formData.dynamicContainerSelector,
         custom_fields: formData.dynamicFields.filter(f => f.name && f.selector).map(f => ({ ...f, name: f.name.trim() })),
         enable_scrolling: formData.dynamicEnableScrolling,
-        max_scrolls: Number(formData.dynamicMaxScrolls)
+        max_scrolls: Number(formData.dynamicMaxScrolls),
+        // Pagination fields
+        enable_pagination: formData.dynamicEnablePagination,
+        start_page: Number(formData.dynamicStartPage),
+        end_page: Number(formData.dynamicEndPage),
+        pagination_type: formData.dynamicPaginationType,
+        page_param: formData.dynamicPageParam,
+        next_button_selector: formData.dynamicNextButtonSelector,
       };
       const res = await fetch(`${API_URL}/scrape-dynamic`, {
         method: "POST",
@@ -166,6 +173,87 @@ export default function DynamicScraper() {
             </div>
           )}
         </div>
+
+        {/* Pagination Controls */}
+        <div className="space-y-4 p-4 border border-slate-700 rounded-md">
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="enable-pagination"
+              checked={formData.dynamicEnablePagination}
+              onCheckedChange={checked => setFormData(prev => ({ ...prev, dynamicEnablePagination: checked }))}
+              className="border-slate-600 data-[state=checked]:bg-sky-600 data-[state=checked]:text-white"
+            />
+            <Label htmlFor="enable-pagination" className="text-slate-300">Enable Pagination</Label>
+          </div>
+
+          {formData.dynamicEnablePagination && (
+            <div className="space-y-4 pl-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="start-page" className="text-slate-300">Start Page</Label>
+                  <Input
+                    id="start-page"
+                    type="number"
+                    min="1"
+                    value={formData.dynamicStartPage}
+                    onChange={e => setFormData(prev => ({ ...prev, dynamicStartPage: parseInt(e.target.value, 10) || 1 }))}
+                    className="mt-1 bg-slate-700 text-white border-slate-600 focus:ring-sky-500 focus:border-sky-500"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="end-page" className="text-slate-300">End Page</Label>
+                  <Input
+                    id="end-page"
+                    type="number"
+                    min={formData.dynamicStartPage || 1}
+                    value={formData.dynamicEndPage}
+                    onChange={e => setFormData(prev => ({ ...prev, dynamicEndPage: parseInt(e.target.value, 10) || (formData.dynamicStartPage || 1) }))}
+                    className="mt-1 bg-slate-700 text-white border-slate-600 focus:ring-sky-500 focus:border-sky-500"
+                  />
+                </div>
+              </div>
+              <div>
+                <Label htmlFor="pagination-type" className="text-slate-300">Pagination Type</Label>
+                <select
+                  id="pagination-type"
+                  value={formData.dynamicPaginationType}
+                  onChange={e => setFormData(prev => ({ ...prev, dynamicPaginationType: e.target.value }))}
+                  className="mt-1 block w-full bg-slate-700 text-white border-slate-600 focus:ring-sky-500 focus:border-sky-500 rounded-md shadow-sm p-2"
+                >
+                  <option value="Next Button">Next Button</option>
+                  <option value="URL Parameter">URL Parameter</option>
+                </select>
+              </div>
+              {formData.dynamicPaginationType === "URL Parameter" && (
+                <div>
+                  <Label htmlFor="page-param" className="text-slate-300">Page Parameter Name</Label>
+                  <Input
+                    id="page-param"
+                    type="text"
+                    value={formData.dynamicPageParam}
+                    onChange={e => setFormData(prev => ({ ...prev, dynamicPageParam: e.target.value }))}
+                    placeholder="e.g., page, p, pg"
+                    className="mt-1 bg-slate-700 text-white border-slate-600 focus:ring-sky-500 focus:border-sky-500"
+                  />
+                </div>
+              )}
+              {formData.dynamicPaginationType === "Next Button" && (
+                <div>
+                  <Label htmlFor="next-button-selector" className="text-slate-300">Next Button Selector (CSS or XPath)</Label>
+                  <Input
+                    id="next-button-selector"
+                    type="text"
+                    value={formData.dynamicNextButtonSelector}
+                    onChange={e => setFormData(prev => ({ ...prev, dynamicNextButtonSelector: e.target.value }))}
+                    placeholder="e.g., .pagination-next a, //button[text()='Next']"
+                    className="mt-1 bg-slate-700 text-white border-slate-600 focus:ring-sky-500 focus:border-sky-500"
+                  />
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
         <div>
           <Label className="text-slate-300 mb-2 block">Fields to Extract</Label>
           <div className="space-y-3">

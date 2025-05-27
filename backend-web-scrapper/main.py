@@ -5,7 +5,7 @@ from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
 from pathlib import Path
 
-from dynamic_web_scrapper import scrape_data, scrape_dynamic_data, set_scraper_status, get_scraper_status # Added get_scraper_status
+from dynamic_web_scrapper import scrape_data, scrape_dynamic_data, scrape_dynamic_with_pagination, set_scraper_status, get_scraper_status # Added scrape_dynamic_with_pagination
 import log_manager # Import the new log manager
 
 app = FastAPI()
@@ -151,7 +151,13 @@ async def scrape_dynamic(
         "container_selector": str,
         "custom_fields": list of {"name": str, "selector": str},
         "enable_scrolling": bool (optional),
-        "max_scrolls": int (optional)
+        "max_scrolls": int (optional),
+        "enable_pagination": bool (optional),
+        "start_page": int (optional),
+        "end_page": int (optional),
+        "pagination_type": str (optional, "URL Parameter" or "Next Button"),
+        "page_param": str (optional),
+        "next_button_selector": str (optional)
     }
     """
     log_payload = {
@@ -160,8 +166,8 @@ async def scrape_dynamic(
         "status": "Pending",
         "errorMessage": None,
         "dataPreview": None,
-        "requestPayload": payload,
-        "scrapedData": None # Initialize scrapedData
+        "requestPayload": payload, # Log the entire incoming payload
+        "scrapedData": None 
     }
     actual_scraped_results = None
     try:
@@ -171,18 +177,51 @@ async def scrape_dynamic(
         custom_fields = payload["custom_fields"]
         enable_scrolling = payload.get("enable_scrolling", False)
         max_scrolls = payload.get("max_scrolls", 5)
-        
-        # Run the synchronous scraping function in a separate thread
-        # Renamed 'data' to 'data_from_scraper' to avoid confusion with 'actual_scraped_results'
-        data_from_scraper = await asyncio.to_thread(
-            scrape_dynamic_data,
-            url,
-            container_selector,
-            custom_fields,
-            enable_scrolling=enable_scrolling,
-            max_scrolls=max_scrolls
-        )
-        actual_scraped_results = data_from_scraper # This is the list of dicts
+
+        enable_pagination = payload.get("enable_pagination", False)
+
+        if enable_pagination:
+            start_page = payload.get("start_page", 1)
+            end_page = payload.get("end_page", 5)
+            pagination_type = payload.get("pagination_type", "Next Button")
+            page_param = payload.get("page_param", "page")
+            next_button_selector = payload.get("next_button_selector", None)
+            
+            # Log pagination specific details
+            log_payload["scrapeType"] = "Dynamic (Paginated)" # More specific type
+            log_payload["paginationDetails"] = {
+                "start_page": start_page,
+                "end_page": end_page,
+                "pagination_type": pagination_type,
+                "page_param": page_param,
+                "next_button_selector": next_button_selector
+            }
+
+            data_from_scraper_df = await asyncio.to_thread(
+                scrape_dynamic_with_pagination,
+                url=url,
+                container_selector=container_selector,
+                custom_fields=custom_fields,
+                start_page=start_page,
+                end_page=end_page,
+                pagination_type=pagination_type,
+                page_param=page_param,
+                next_button_selector=next_button_selector,
+                enable_scrolling=enable_scrolling,
+                max_scrolls=max_scrolls
+            )
+            # scrape_dynamic_with_pagination returns a DataFrame
+            actual_scraped_results = data_from_scraper_df.to_dict(orient="records")
+        else:
+            data_from_scraper = await asyncio.to_thread(
+                scrape_dynamic_data,
+                url,
+                container_selector,
+                custom_fields,
+                enable_scrolling=enable_scrolling,
+                max_scrolls=max_scrolls
+            )
+            actual_scraped_results = data_from_scraper # This is already a list of dicts
         
         # Check if scraping was cancelled
         if not get_scraper_status(): # If status is False, it means it was cancelled
