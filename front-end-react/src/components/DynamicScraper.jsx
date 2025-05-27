@@ -82,8 +82,13 @@ export default function DynamicScraper() {
       if (responseData.task_id) {
         updateTaskId(operationKey, responseData.task_id);
       }
+      
+      // Show success toast only if the operation status is explicitly "completed"
+      if (responseData.operation_status === "completed") {
+        toast.success("Dynamic scrape completed successfully!");
+      }
+      
       setScrapeOperationSuccess(operationKey, responseData);
-      toast.success("Dynamic scrape completed successfully!");
 
     } catch (err) {
       setScrapeOperationError(operationKey, "Error: " + err.message);
@@ -92,29 +97,36 @@ export default function DynamicScraper() {
   };
 
   const handleCancel = async () => {
-    if (!taskId || !lastOperationKey) {
-      toast.error("No active scrape operation to cancel or task ID missing.");
-      setScrapeOperationCancelled(lastOperationKey || 'unknown_op_key'); // Attempt to update UI even if key is missing
+    // lastOperationKey is crucial for updating the UI state correctly.
+    // If it's missing, it implies no operation is currently tracked as active.
+    if (!lastOperationKey) {
+      toast.error("No active scrape operation to cancel.");
+      // If lastOperationKey is null, there's likely nothing to update in the UI state
+      // for cancellation as no operation key is tracked.
       return;
     }
     
-    console.log(`Cancel button clicked for task: ${taskId}`);
+    console.log(`Cancel button clicked for operation: ${lastOperationKey}`); // Log operation key
     try {
-      const res = await fetch(`${API_URL}/cancel-task/${taskId}`, { method: "POST" });
+      // Call the /stop-scraper endpoint
+      const res = await fetch(`${API_URL}/stop-scraper`, { method: "POST" });
       const data = await res.json(); // Try to parse JSON regardless of res.ok
 
       if (!res.ok) {
-        const errorMessage = data?.detail || `Failed to send cancel signal: ${res.statusText}`;
+        const errorMessage = data?.detail || `Failed to send stop signal: ${res.statusText}`;
         throw new Error(errorMessage);
       }
       
-      console.log("Cancel signal response:", data);
-      toast.success(data.message || "Scrape cancellation request sent.");
-      setScrapeOperationCancelled(lastOperationKey);
+      console.log("Stop signal response:", data);
+      // The backend /stop-scraper returns {"status": "stop signal sent"}
+      const stopMessage = data.status || "stop signal sent";
+      toast.warning(`Scraping stopped: ${stopMessage}`); 
+      setScrapeOperationCancelled(lastOperationKey); // Update UI state
     } catch (err) {
-      console.error("Error sending cancel signal:", err);
-      toast.error("Error trying to cancel: " + err.message);
-      // Still mark as cancelled in UI to stop loading spinner, backend might eventually timeout
+      console.error("Error sending stop signal:", err);
+      toast.error("Error trying to stop scrape: " + err.message);
+      // Still mark as cancelled in UI to stop loading spinner, 
+      // as the backend might eventually stop or timeout.
       setScrapeOperationCancelled(lastOperationKey);
     }
   };

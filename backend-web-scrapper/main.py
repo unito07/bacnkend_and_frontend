@@ -231,11 +231,13 @@ async def scrape_dynamic(
             # and the data might be partial or empty.
             print("Dynamic scraping was cancelled.")
             # actual_scraped_results might be partial here
+            operation_status = "cancelled"
         else:
             log_payload["status"] = "Success"
             # log_payload["dataPreview"] = f"{len(actual_scraped_results)} items scraped" if isinstance(actual_scraped_results, list) else "Data scraped"
+            operation_status = "completed"
 
-        return {"results": actual_scraped_results}
+        return {"results": actual_scraped_results, "operation_status": operation_status}
     except Exception as e:
         print(f"Error during dynamic scraping: {e}")
         log_payload["status"] = "Failed"

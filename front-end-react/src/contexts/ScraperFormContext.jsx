@@ -61,6 +61,17 @@ export const ScraperFormProvider = ({ children }) => {
   const setScrapeOperationSuccess = useCallback((operationKey, results) => {
     setScrapeOperation(prev => {
       if (prev.lastOperationKey === operationKey) {
+        // If the backend explicitly sent a "cancelled" status, treat it as a cancellation
+        if (results && results.operation_status === "cancelled") {
+          console.log(`Operation ${operationKey} was reported as cancelled by backend.`);
+          return {
+            ...prev,
+            isLoadingScrape: false,
+            scrapeError: "Scrape operation was cancelled by the user.",
+            scrapeResults: null, // Clear results for cancelled operations
+          };
+        }
+        // Otherwise, it's a true success
         return {
           ...prev,
           isLoadingScrape: false,
