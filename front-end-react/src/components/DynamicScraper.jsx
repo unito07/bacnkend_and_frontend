@@ -1,19 +1,28 @@
-import React, { useState } from "react";
+import React from "react";
 import Results from "./Results";
 import FieldRow from "./FieldRow";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { useScraperForm } from "../contexts/ScraperFormContext"; // Import the hook
+import { useScraperForm } from "../contexts/ScraperFormContext";
+import { toast } from "sonner";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
 export default function DynamicScraper() {
-  const { formData, setFormData } = useScraperForm(); // Use the context
-  const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState(null);
-  const [error, setError] = useState("");
+  const { 
+    formData, 
+    setFormData, 
+    scrapeOperation, 
+    startScrapeOperation, 
+    setScrapeOperationSuccess, 
+    setScrapeOperationError,
+    setScrapeOperationCancelled,
+    updateTaskId 
+  } = useScraperForm();
+
+  const { isLoadingScrape, scrapeResults, scrapeError, lastOperationKey, taskId } = scrapeOperation;
 
   const handleFieldChange = (idx, key, value) => {
     setFormData(prev => ({
@@ -38,9 +47,9 @@ export default function DynamicScraper() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setLoading(true);
-    setError("");
-    setResult(null);
+    const operationKey = Date.now().toString(); // Unique key for this operation
+    startScrapeOperation('dynamic', operationKey);
+
     try {
       const payload = {
         url: formData.dynamicUrl,
@@ -54,28 +63,53 @@ export default function DynamicScraper() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
       });
-      if (!res.ok) throw new Error(`Failed to fetch: ${res.statusText}`);
-      const data = await res.json();
-      setResult(data);
+
+      const responseData = await res.json(); // Try to parse JSON regardless of res.ok
+      
+      if (!res.ok) {
+        // Use detail from responseData if available, otherwise default error
+        const errorMessage = responseData?.detail || `Failed to fetch: ${res.statusText} (Status: ${res.status})`;
+        throw new Error(errorMessage);
+      }
+      
+      if (responseData.task_id) {
+        updateTaskId(operationKey, responseData.task_id);
+      }
+      setScrapeOperationSuccess(operationKey, responseData);
+      toast.success("Dynamic scrape completed successfully!");
+
     } catch (err) {
-      setError("Error: " + err.message);
+      setScrapeOperationError(operationKey, "Error: " + err.message);
+      toast.error("Dynamic scrape failed: " + err.message);
     }
-    setLoading(false);
   };
 
   const handleCancel = async () => {
-    console.log("Cancel button clicked");
-    try {
-      const res = await fetch(`${API_URL}/stop-scraper`, { method: "POST" });
-      if (!res.ok) throw new Error(`Failed to send stop signal: ${res.statusText}`);
-      const data = await res.json();
-      console.log("Stop signal response:", data);
-      setError("Scraping process cancelled by user.");
-    } catch (err) {
-      console.error("Error sending stop signal:", err);
-      setError("Error trying to cancel: " + err.message + ". Scraper might still be running.");
+    if (!taskId || !lastOperationKey) {
+      toast.error("No active scrape operation to cancel or task ID missing.");
+      setScrapeOperationCancelled(lastOperationKey || 'unknown_op_key'); // Attempt to update UI even if key is missing
+      return;
     }
-    setLoading(false); // Ensure loading is set to false
+    
+    console.log(`Cancel button clicked for task: ${taskId}`);
+    try {
+      const res = await fetch(`${API_URL}/cancel-task/${taskId}`, { method: "POST" });
+      const data = await res.json(); // Try to parse JSON regardless of res.ok
+
+      if (!res.ok) {
+        const errorMessage = data?.detail || `Failed to send cancel signal: ${res.statusText}`;
+        throw new Error(errorMessage);
+      }
+      
+      console.log("Cancel signal response:", data);
+      toast.success(data.message || "Scrape cancellation request sent.");
+      setScrapeOperationCancelled(lastOperationKey);
+    } catch (err) {
+      console.error("Error sending cancel signal:", err);
+      toast.error("Error trying to cancel: " + err.message);
+      // Still mark as cancelled in UI to stop loading spinner, backend might eventually timeout
+      setScrapeOperationCancelled(lastOperationKey);
+    }
   };
 
   const fieldOrder = formData.dynamicFields.filter(f => f.name && f.selector).map(f => f.name.trim());
@@ -152,24 +186,24 @@ export default function DynamicScraper() {
         </div>
         <Button
           type="submit"
-          disabled={loading || !formData.dynamicUrl || !formData.dynamicContainerSelector || formData.dynamicFields.some(f => !f.name || !f.selector)}
+          disabled={isLoadingScrape || !formData.dynamicUrl || !formData.dynamicContainerSelector || formData.dynamicFields.some(f => !f.name || !f.selector)}
           className="w-full bg-sky-600 hover:bg-sky-700"
         >
-          {loading ? "Scraping..." : "Scrape"}
+          {isLoadingScrape ? "Scraping..." : "Scrape"}
         </Button>
-        {loading && (
+        {isLoadingScrape && (
           <Button
             type="button"
             onClick={handleCancel}
-            variant="destructive" // Uses the destructive variant for red styling
-            className="w-full mt-2" // Added margin top for spacing
+            variant="destructive"
+            className="w-full mt-2"
           >
             Cancel Scraping
           </Button>
         )}
       </form>
-      {error && <div className="mt-4 text-red-400 bg-red-900/30 p-3 rounded-md">{error}</div>}
-      {result && <Results data={result} fieldOrder={fieldOrder.length > 0 ? fieldOrder : null} />}
+      {scrapeError && <div className="mt-4 text-red-400 bg-red-900/30 p-3 rounded-md">{scrapeError}</div>}
+      {scrapeResults && <Results data={scrapeResults.results || scrapeResults} fieldOrder={fieldOrder.length > 0 ? fieldOrder : null} taskId={scrapeResults.task_id} />}
     </section>
   );
 }
