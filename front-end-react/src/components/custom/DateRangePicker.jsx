@@ -57,8 +57,8 @@ const DateRangePicker = ({ onApply, initialStartDate, initialEndDate }) => {
             "w-8 h-8 flex items-center justify-center rounded-full text-sm cursor-pointer",
             "hover:bg-accent hover:text-accent-foreground",
             isToday && "border border-primary",
-            isInRange && "bg-purple-200", // Light purple for range
-            isSelected && "bg-purple-500 text-white", // Darker purple for selected
+            isInRange && "bg-green-200 text-black", // Light green for range, black text
+            isSelected && "bg-green-500 text-black", // Darker green for selected, black text
             (isSameDay(day, startDate) && endDate) && "rounded-r-none", // Start of range, not end
             (isSameDay(day, endDate) && startDate) && "rounded-l-none", // End of range, not start
             (isSameDay(day, startDate) && isSameDay(day, endDate)) && "rounded-full" // Single day selected
@@ -103,7 +103,7 @@ const DateRangePicker = ({ onApply, initialStartDate, initialEndDate }) => {
     setFocusedDate(today);
     onApply(today, today);
     setIsCalendarOpen(false); // Close dialog after selection
-    setSelectedTab(null); // Reset selected tab
+    // setSelectedTab(null); // Removed: Do not reset selected tab
   };
 
   const handleYesterday = () => {
@@ -113,7 +113,7 @@ const DateRangePicker = ({ onApply, initialStartDate, initialEndDate }) => {
     setFocusedDate(yesterday);
     onApply(yesterday, yesterday);
     setIsCalendarOpen(false); // Close dialog after selection
-    setSelectedTab(null); // Reset selected tab
+    // setSelectedTab(null); // Removed: Do not reset selected tab
   };
 
   const displayRange = () => {
@@ -126,12 +126,17 @@ const DateRangePicker = ({ onApply, initialStartDate, initialEndDate }) => {
   };
 
   return (
-    <Dialog open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
+    <Dialog open={isCalendarOpen} onOpenChange={(open) => {
+      setIsCalendarOpen(open);
+      if (open && selectedTab === null) {
+        setSelectedTab("Today"); // Set "Today" as default active tab when dialog opens
+      }
+    }}>
       <DialogTrigger asChild>
         <Button
           variant="outline"
           className="w-[280px] justify-start text-left font-normal"
-          onClick={() => { setIsCalendarOpen(true); setSelectedTab("Today"); }} // Open dialog and set default tab
+          onClick={() => { setIsCalendarOpen(true); }} // Open dialog
         >
           <CalendarIcon className="mr-2 h-4 w-4" />
           {displayRange()}
@@ -143,9 +148,27 @@ const DateRangePicker = ({ onApply, initialStartDate, initialEndDate }) => {
         </DialogHeader>
         <div className="grid gap-4 py-4">
           <div className="flex gap-2 mb-4">
-            <Button variant="outline" size="sm" onClick={() => { setSelectedTab("Today"); handleToday(); }}>Today</Button>
-            <Button variant="outline" size="sm" onClick={() => { setSelectedTab("Yesterday"); handleYesterday(); }}>Yesterday</Button>
-            <Button variant="outline" size="sm" onClick={() => setSelectedTab("Custom")}>Custom</Button>
+            <Button
+              variant={selectedTab === "Today" ? "default" : "outline"}
+              size="sm"
+              onClick={() => { setSelectedTab("Today"); handleToday(); }}
+            >
+              Today
+            </Button>
+            <Button
+              variant={selectedTab === "Yesterday" ? "default" : "outline"}
+              size="sm"
+              onClick={() => { setSelectedTab("Yesterday"); handleYesterday(); }}
+            >
+              Yesterday
+            </Button>
+            <Button
+              variant={selectedTab === "Custom" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setSelectedTab("Custom")}
+            >
+              Custom
+            </Button>
           </div>
 
           {selectedTab === "Custom" && (
