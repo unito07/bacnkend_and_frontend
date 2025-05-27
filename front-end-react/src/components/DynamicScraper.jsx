@@ -83,11 +83,8 @@ export default function DynamicScraper() {
         updateTaskId(operationKey, responseData.task_id);
       }
       
-      // Show success toast only if the operation status is explicitly "completed"
-      if (responseData.operation_status === "completed") {
-        toast.success("Dynamic scrape completed successfully!");
-      }
-      
+      // Display success toast unconditionally before updating state
+      toast.success("Dynamic scrape completed successfully!");
       setScrapeOperationSuccess(operationKey, responseData);
 
     } catch (err) {

@@ -43,8 +43,9 @@ export default function StaticScraper() {
       //   updateTaskId(operationKey, responseData.task_id);
       // }
 
-      setScrapeOperationSuccess(operationKey, responseData);
+      // Display success toast before updating state, similar to DynamicScraper
       toast.success("Static scrape completed successfully!");
+      setScrapeOperationSuccess(operationKey, responseData);
 
     } catch (err) {
       setScrapeOperationError(operationKey, "Error: " + err.message);
