@@ -153,10 +153,19 @@ function HistoryLogsPage() {
     }
   };
   
-  const formatTimestamp = (isoString) => {
+ const formatTimestamp = (isoString) => {
     if (!isoString) return 'N/A';
     try {
-      return new Date(isoString).toLocaleString();
+      const options = {
+        timeZone: 'UTC',
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: 'numeric',
+        second: 'numeric',
+      };
+      return new Intl.DateTimeFormat('en-US', options).format(new Date(isoString));
     } catch (e) {
       return isoString; // Return original if parsing fails
     }

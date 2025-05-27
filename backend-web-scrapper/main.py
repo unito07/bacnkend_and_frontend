@@ -61,26 +61,8 @@ async def get_all_logs(
     start_date: Optional[str] = None,
     end_date: Optional[str] = None
 ):
-    logs = await asyncio.to_thread(log_manager.get_all_log_entries)
-    
-    if start_date and end_date:
-        from datetime import datetime
-        try:
-            start_date = datetime.strptime(start_date, "%Y-%m-%d")
-            end_date = datetime.strptime(end_date, "%Y-%m-%d")
-        except ValueError:
-            raise HTTPException(status_code=400, detail="Invalid date format. Please use YYYY-MM-DD.")
-        
-        filtered_logs = []
-        for log in logs:
-            try:
-                log_date = datetime.strptime(log["timestamp"].split(",")[0], "%d/%m/%Y")
-                if start_date <= log_date <= end_date:
-                    filtered_logs.append(log)
-            except ValueError:
-                print(f"Warning: Could not parse date from log entry: {log['timestamp']}")
-                continue
-        return filtered_logs
+    # Pass start_date and end_date directly to the log_manager
+    logs = await asyncio.to_thread(log_manager.get_all_log_entries, start_date, end_date)
     return logs
 
 @app.get("/logs/{log_id}", summary="Get Specific Log Entry", response_model=Optional[LogEntryResponse])

@@ -2,6 +2,7 @@ import os
 import json
 import uuid
 from datetime import datetime
+import pytz
 from pathlib import Path
 from typing import List, Dict, Optional, Any
 
@@ -59,7 +60,7 @@ def create_log_entry(log_data: Dict[str, Any]) -> Dict[str, Any]:
     log_id = _generate_log_id()
     log_entry = {
         "id": log_id,
-        "timestamp": datetime.now().isoformat(),
+        "timestamp": datetime.now(pytz.utc).isoformat(),
         **log_data  # Merge provided data
     }
     
@@ -74,7 +75,9 @@ def create_log_entry(log_data: Dict[str, Any]) -> Dict[str, Any]:
 def get_all_log_entries(start_date: Optional[str] = None, end_date: Optional[str] = None) -> List[Dict[str, Any]]:
     """Retrieves all log entries, optionally filtered by date range."""
     logs_dir = get_log_storage_path()
+    print(f"Filtering logs. Received start_date: {start_date} (type: {type(start_date)}), end_date: {end_date} (type: {type(end_date)})") # DEBUG
     if not logs_dir.exists():
+        print("Logs directory does not exist.") # DEBUG
         return []
     
     all_log_entries = []
@@ -92,42 +95,70 @@ def get_all_log_entries(start_date: Optional[str] = None, end_date: Optional[str
 
     if start_date:
         try:
-            start_dt = datetime.fromisoformat(start_date.replace('Z', '+00:00')) # Handle 'Z' for UTC
+            start_dt = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
+            print(f"Parsed start_dt: {start_dt} (date part: {start_dt.date()})") # DEBUG
         except ValueError:
-            # Handle cases where frontend might send non-ISO format, or just ignore filter
             print(f"Warning: Could not parse start_date: {start_date}")
+            start_dt = None # Ensure it's None if parsing fails
 
     if end_date:
         try:
-            end_dt = datetime.fromisoformat(end_date.replace('Z', '+00:00')) # Handle 'Z' for UTC
+            end_dt_temp = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
+            # To make the end_date inclusive, we effectively set the filter to the start of the next day
+            # and then use a strict less-than comparison for the log's date.
+            from datetime import timedelta
+            end_dt_exclusive_upper_bound = datetime.combine(end_dt_temp.date() + timedelta(days=1), datetime.min.time()).replace(tzinfo=end_dt_temp.tzinfo)
+            end_dt = end_dt_exclusive_upper_bound # Store this for comparison logic
+            print(f"Parsed end_date '{end_date}' to exclusive upper bound for filtering: {end_dt_exclusive_upper_bound}") # DEBUG
         except ValueError:
             print(f"Warning: Could not parse end_date: {end_date}")
+            end_dt = None # Ensure it's None if parsing fails
+    
+    print(f"Filtering with start_dt: {start_dt}, end_dt (exclusive upper bound): {end_dt}") # DEBUG
 
-    for log in all_log_entries:
+    for log_idx, log in enumerate(all_log_entries):
         log_timestamp_str = log.get("timestamp")
         if not log_timestamp_str:
+            print(f"Log {log_idx + 1}/{len(all_log_entries)}: No timestamp found. Skipping.") # DEBUG
             continue
 
         try:
-            log_dt = datetime.fromisoformat(log_timestamp_str.replace('Z', '+00:00'))
-        except ValueError:
-            print(f"Warning: Could not parse log timestamp: {log_timestamp_str}")
+            # Ensure it's a string and strip whitespace
+            if not isinstance(log_timestamp_str, str):
+                print(f"Log {log_idx + 1}/{len(all_log_entries)}: Timestamp is not a string: {type(log_timestamp_str)}, value: {repr(log_timestamp_str)}. Skipping.") # DEBUG
+                continue
+            
+            cleaned_timestamp_str = log_timestamp_str.strip()
+            log_dt = datetime.fromisoformat(cleaned_timestamp_str.replace('Z', '+00:00'))
+            # print(f"Log {log_idx + 1}/{len(all_log_entries)}: Parsed log_dt: {log_dt} (date part: {log_dt.date()})") # DEBUG - Can be too verbose
+        except ValueError as e:
+            print(f"Log {log_idx + 1}/{len(all_log_entries)}: Could not parse log timestamp. Original: '{log_timestamp_str}', Cleaned: '{cleaned_timestamp_str}', Repr: {repr(log_timestamp_str)}. Error: {e}. Skipping.") # DEBUG
             continue
 
         include_log = True
+        # Filtering logic:
+        # Log timestamp must be on or after start_date (if start_date is provided)
+        # Log timestamp must be on or before end_date (if end_date is provided)
+        
         if start_dt:
-            # Compare only date part for start_date to include all logs from that day
+            # Log date must be on or after start_dt's date
             if log_dt.date() < start_dt.date():
+                # print(f"Log {log_idx + 1}: Excluded by start_date. Log date {log_dt.date()} < start_dt {start_dt.date()}") # DEBUG
                 include_log = False
         
-        if include_log and end_dt:
-            # Compare only date part for end_date to include all logs up to the end of that day
-            if log_dt.date() > end_dt.date():
+        if include_log and end_dt: # end_dt is now the start of the day *after* the desired end_date
+            # Log date must be strictly before the start of the day after end_dt
+            if log_dt.date() >= end_dt.date(): # If log date is on or after the day *after* end_date
+                # print(f"Log {log_idx + 1}: Excluded by end_date. Log date {log_dt.date()} >= end_dt (exclusive upper bound) {end_dt.date()}") # DEBUG
                 include_log = False
         
         if include_log:
+            # print(f"Log {log_idx + 1}: Included.") # DEBUG
             filtered_logs.append(log)
+        # else:
+            # print(f"Log {log_idx + 1}: Excluded by date filter.") # DEBUG
 
+    print(f"Total logs read: {len(all_log_entries)}, Filtered logs: {len(filtered_logs)}") # DEBUG
     # Sort by timestamp, newest first
     filtered_logs.sort(key=lambda x: x.get("timestamp", ""), reverse=True)
     return filtered_logs
