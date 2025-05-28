@@ -3,6 +3,7 @@ import Results from "./Results";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useScraperForm } from "../contexts/ScraperFormContext";
 import { toast } from "sonner";
 
@@ -57,35 +58,44 @@ export default function StaticScraper() {
   // but if it did, it would be similar to DynamicScraper's handleCancel
 
   return (
-    <section className="p-6 bg-slate-800 rounded-lg shadow-md my-8">
-      <h2 className="text-2xl font-semibold text-white mb-4">Static Scraper</h2>
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <Label htmlFor="static-url" className="text-slate-300">URL</Label>
-          <Input
-            id="static-url"
-            type="text"
-            value={formData.staticUrl}
-            onChange={e => setFormData(prev => ({ ...prev, staticUrl: e.target.value }))}
-            placeholder="https://example.com"
-            required
-            className="mt-1 bg-slate-700 text-white border-slate-600 focus:ring-sky-500 focus:border-sky-500"
-          />
-        </div>
-        <Button 
-          type="submit" 
-          disabled={isLoadingScrape || !formData.staticUrl} 
-          className="w-full bg-sky-600 hover:bg-sky-700"
-        >
-          {isLoadingScrape ? "Scraping..." : "Scrape"}
-        </Button>
-      </form>
-      {scrapeError && scrapeOperation.scrapeType === 'static' && (
-        <div className="mt-4 text-red-400 bg-red-900/30 p-3 rounded-md">{scrapeError}</div>
-      )}
-      {scrapeResults && scrapeOperation.scrapeType === 'static' && (
-        <Results data={scrapeResults.results || scrapeResults} taskId={scrapeResults.task_id} />
-      )}
-    </section>
+    <Card className="w-full bg-[var(--card)] border-[var(--border)] shadow-xl">
+      <CardHeader>
+        <CardTitle className="text-3xl font-bold text-center text-[var(--accent)]">Static Scraper</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div>
+            <Label htmlFor="static-url" className="text-lg text-[var(--muted-foreground)]">URL</Label>
+            <Input
+              id="static-url"
+              type="text"
+              value={formData.staticUrl}
+              onChange={e => setFormData(prev => ({ ...prev, staticUrl: e.target.value }))}
+              placeholder="https://example.com"
+              required
+              className="mt-2 text-lg p-3 bg-[var(--muted)] text-[var(--foreground)] border-[var(--input)] focus:ring-[var(--ring)] focus:border-[var(--ring)] rounded-md"
+            />
+          </div>
+          <Button 
+            type="submit" 
+            disabled={isLoadingScrape || !formData.staticUrl} 
+            className="w-full text-lg py-3 bg-[var(--primary)] hover:bg-[var(--primary)]/90 text-[var(--primary-foreground)] rounded-md hover:shadow-[0_0_15px_var(--primary)] transition-all duration-300 ease-in-out"
+          >
+            {isLoadingScrape ? "Scraping..." : "Scrape Static URL"}
+          </Button>
+        </form>
+        {scrapeError && scrapeOperation.scrapeType === 'static' && (
+          <div className="mt-6 text-[var(--destructive-foreground)] bg-[var(--destructive)]/30 p-4 rounded-md border border-[var(--destructive)]">
+            <p className="font-semibold">Error:</p>
+            <p>{scrapeError}</p>
+          </div>
+        )}
+        {scrapeResults && scrapeOperation.scrapeType === 'static' && (
+          <div className="mt-6">
+            <Results data={scrapeResults.results || scrapeResults} taskId={scrapeResults.task_id} />
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }

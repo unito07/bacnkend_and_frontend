@@ -4,9 +4,13 @@ import FieldRow from "./FieldRow";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
+import { NeonCheckbox } from "@/components/ui/animated-check-box";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ChevronDown, ChevronRight } from 'lucide-react';
 import { useScraperForm } from "../contexts/ScraperFormContext";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils"; // Assuming cn utility is available for class merging
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
@@ -131,176 +135,267 @@ export default function DynamicScraper() {
   const fieldOrder = formData.dynamicFields.filter(f => f.name && f.selector).map(f => f.name.trim());
 
   return (
-    <section className="p-6 bg-slate-800 rounded-lg shadow-md my-8">
-      <h2 className="text-2xl font-semibold text-white mb-4">Dynamic Scraper</h2>
-      <form onSubmit={handleSubmit} className="space-y-6">
-        <div>
-          <Label htmlFor="dynamic-url" className="text-slate-300">URL</Label>
-          <Input
-            id="dynamic-url"
-            type="text"
-            value={formData.dynamicUrl}
-            onChange={e => setFormData(prev => ({ ...prev, dynamicUrl: e.target.value }))}
-            placeholder="https://example.com"
-            required
-            className="mt-1 bg-slate-700 text-white border-slate-600 focus:ring-sky-500 focus:border-sky-500"
-          />
-        </div>
-        <div>
-          <Label htmlFor="container-selector" className="text-slate-300">Container CSS Selector</Label>
-          <Input
-            id="container-selector"
-            type="text"
-            value={formData.dynamicContainerSelector}
-            onChange={e => setFormData(prev => ({ ...prev, dynamicContainerSelector: e.target.value }))}
-            placeholder=".item-container"
-            required
-            className="mt-1 bg-slate-700 text-white border-slate-600 focus:ring-sky-500 focus:border-sky-500"
-          />
-        </div>
-        <div className="flex items-center space-x-4">
-          <div className="flex items-center space-x-2">
-            <Checkbox
-              id="enable-scrolling"
-              checked={formData.dynamicEnableScrolling}
-              onCheckedChange={checked => setFormData(prev => ({ ...prev, dynamicEnableScrolling: checked }))}
-              className="border-slate-600 data-[state=checked]:bg-sky-600 data-[state=checked]:text-white"
+    <Card className="w-full bg-[var(--card)] border-[var(--border)] shadow-xl">
+      <CardHeader>
+        <CardTitle className="text-3xl font-bold text-center text-[var(--accent)]">Dynamic Scraper</CardTitle>
+        <CardDescription className="text-center text-[var(--muted-foreground)] pt-1">
+          Configure advanced scraping for dynamic content and pagination.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={handleSubmit} className="space-y-8">
+          <div>
+            <Label htmlFor="dynamic-url" className="text-lg text-[var(--muted-foreground)]">URL</Label>
+            <Input
+              id="dynamic-url"
+              type="text"
+              value={formData.dynamicUrl}
+              onChange={e => setFormData(prev => ({ ...prev, dynamicUrl: e.target.value }))}
+              placeholder="https://example.com"
+              required
+              className="mt-2 text-lg p-3 bg-[var(--muted)] text-[var(--foreground)] border-[var(--input)] focus:ring-[var(--ring)] focus:border-[var(--ring)] rounded-md"
             />
-            <Label htmlFor="enable-scrolling" className="text-slate-300">Enable Scrolling</Label>
           </div>
-          {formData.dynamicEnableScrolling && (
-            <div>
-              <Label htmlFor="max-scrolls" className="text-slate-300">Max Scrolls</Label>
-              <Input
-                id="max-scrolls"
-                type="number"
-                min="1"
-                value={formData.dynamicMaxScrolls}
-                onChange={e => setFormData(prev => ({ ...prev, dynamicMaxScrolls: parseInt(e.target.value, 10) || 1 }))}
-                className="mt-1 w-24 bg-slate-700 text-white border-slate-600 focus:ring-sky-500 focus:border-sky-500"
-              />
-            </div>
-          )}
-        </div>
-
-        {/* Pagination Controls */}
-        <div className="space-y-4 p-4 border border-slate-700 rounded-md">
-          <div className="flex items-center space-x-2">
-            <Checkbox
-              id="enable-pagination"
-              checked={formData.dynamicEnablePagination}
-              onCheckedChange={checked => setFormData(prev => ({ ...prev, dynamicEnablePagination: checked }))}
-              className="border-slate-600 data-[state=checked]:bg-sky-600 data-[state=checked]:text-white"
+          <div>
+            <Label htmlFor="container-selector" className="text-lg text-[var(--muted-foreground)]">Container CSS Selector</Label>
+            <Input
+              id="container-selector"
+              type="text"
+              value={formData.dynamicContainerSelector}
+              onChange={e => setFormData(prev => ({ ...prev, dynamicContainerSelector: e.target.value }))}
+              placeholder=".item-container"
+              required
+              className="mt-2 text-lg p-3 bg-[var(--muted)] text-[var(--foreground)] border-[var(--input)] focus:ring-[var(--ring)] focus:border-[var(--ring)] rounded-md"
             />
-            <Label htmlFor="enable-pagination" className="text-slate-300">Enable Pagination</Label>
           </div>
-
-          {formData.dynamicEnablePagination && (
-            <div className="space-y-4 pl-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="start-page" className="text-slate-300">Start Page</Label>
-                  <Input
-                    id="start-page"
-                    type="number"
-                    min="1"
-                    value={formData.dynamicStartPage}
-                    onChange={e => setFormData(prev => ({ ...prev, dynamicStartPage: parseInt(e.target.value, 10) || 1 }))}
-                    className="mt-1 bg-slate-700 text-white border-slate-600 focus:ring-sky-500 focus:border-sky-500"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="end-page" className="text-slate-300">End Page</Label>
-                  <Input
-                    id="end-page"
-                    type="number"
-                    min={formData.dynamicStartPage || 1}
-                    value={formData.dynamicEndPage}
-                    onChange={e => setFormData(prev => ({ ...prev, dynamicEndPage: parseInt(e.target.value, 10) || (formData.dynamicStartPage || 1) }))}
-                    className="mt-1 bg-slate-700 text-white border-slate-600 focus:ring-sky-500 focus:border-sky-500"
-                  />
-                </div>
-              </div>
-              <div>
-                <Label htmlFor="pagination-type" className="text-slate-300">Pagination Type</Label>
-                <select
-                  id="pagination-type"
-                  value={formData.dynamicPaginationType}
-                  onChange={e => setFormData(prev => ({ ...prev, dynamicPaginationType: e.target.value }))}
-                  className="mt-1 block w-full bg-slate-700 text-white border-slate-600 focus:ring-sky-500 focus:border-sky-500 rounded-md shadow-sm p-2"
+          
+          {/* Scrolling Options */}
+          <div className={cn(
+            "rounded-lg border border-[var(--border)]/70 bg-[var(--background)] transition-all duration-300 ease-in-out",
+            formData.dynamicEnableScrolling ? "shadow-[0_0_15px_var(--ring)]" : ""
+          )}>
+            <div 
+              className={cn( // Keep styling for hover and active state, but remove direct onClick
+                "flex items-center justify-between space-x-3 p-4 rounded-t-lg cursor-pointer hover:bg-[var(--muted)]/20 transition-colors",
+                formData.dynamicEnableScrolling && "bg-[var(--muted)]/10 border-b border-[var(--border)]/30"
+              )}
+              // onClick is removed here. Interaction relies on Label htmlFor -> Checkbox onCheckedChange
+            >
+              <div className="flex items-center space-x-3">
+                <NeonCheckbox
+                  id="enable-scrolling"
+                  checked={formData.dynamicEnableScrolling}
+                  onChange={e => setFormData(prev => {
+                    const baseState = (typeof prev === 'object' && prev !== null) ? prev : {};
+                    return { 
+                      ...baseState, 
+                      dynamicEnableScrolling: e.target.checked 
+                    };
+                  })}
+                  className="h-6 w-6 border-[var(--input)] data-[state=checked]:bg-[var(--primary)] data-[state=checked]:text-[var(--primary-foreground)] focus:ring-[var(--ring)]"
+                  aria-labelledby="enable-scrolling-label"
+                />
+                <Label 
+                  id="enable-scrolling-label"
+                  htmlFor="enable-scrolling" 
+                  className={cn(
+                    "text-lg font-medium cursor-pointer",
+                    formData.dynamicEnableScrolling ? "text-[var(--primary)]" : "text-[var(--muted-foreground)]"
+                  )}
                 >
-                  <option value="Next Button">Next Button</option>
-                  <option value="URL Parameter">URL Parameter</option>
-                </select>
+                  Enable Scrolling
+                </Label>
               </div>
-              {formData.dynamicPaginationType === "URL Parameter" && (
-                <div>
-                  <Label htmlFor="page-param" className="text-slate-300">Page Parameter Name</Label>
-                  <Input
-                    id="page-param"
-                    type="text"
-                    value={formData.dynamicPageParam}
-                    onChange={e => setFormData(prev => ({ ...prev, dynamicPageParam: e.target.value }))}
-                    placeholder="e.g., page, p, pg"
-                    className="mt-1 bg-slate-700 text-white border-slate-600 focus:ring-sky-500 focus:border-sky-500"
-                  />
-                </div>
-              )}
-              {formData.dynamicPaginationType === "Next Button" && (
-                <div>
-                  <Label htmlFor="next-button-selector" className="text-slate-300">Next Button Selector (CSS or XPath)</Label>
-                  <Input
-                    id="next-button-selector"
-                    type="text"
-                    value={formData.dynamicNextButtonSelector}
-                    onChange={e => setFormData(prev => ({ ...prev, dynamicNextButtonSelector: e.target.value }))}
-                    placeholder="e.g., .pagination-next a, //button[text()='Next']"
-                    className="mt-1 bg-slate-700 text-white border-slate-600 focus:ring-sky-500 focus:border-sky-500"
-                  />
-                </div>
-              )}
+              {formData.dynamicEnableScrolling ? <ChevronDown className="h-6 w-6 text-[var(--primary)]" /> : <ChevronRight className="h-6 w-6 text-[var(--muted-foreground)]" />}
             </div>
-          )}
-        </div>
-
-        <div>
-          <Label className="text-slate-300 mb-2 block">Fields to Extract</Label>
-          <div className="space-y-3">
-            {formData.dynamicFields.map((field, idx) => (
-              <FieldRow
-                key={idx}
-                name={field.name}
-                selector={field.selector}
-                onChange={(key, value) => handleFieldChange(idx, key, value)}
-                onRemove={() => removeField(idx)}
-                canRemove={formData.dynamicFields.length > 1}
-              />
-            ))}
+            {formData.dynamicEnableScrolling && (
+              <div className="p-4 border-t border-[var(--border)]/70">
+                <Label htmlFor="max-scrolls" className="text-base text-[var(--muted-foreground)] block mb-1">Max Scrolls</Label>
+                <Input
+                  id="max-scrolls"
+                  type="number"
+                  min="1"
+                  value={formData.dynamicMaxScrolls}
+                  onChange={e => setFormData(prev => ({ ...prev, dynamicMaxScrolls: parseInt(e.target.value, 10) || 1 }))}
+                  className="w-28 text-base p-2 bg-[var(--muted)] text-[var(--foreground)] border-[var(--input)] focus:ring-[var(--ring)] focus:border-[var(--ring)] rounded-md"
+                />
+              </div>
+            )}
           </div>
-          <Button type="button" onClick={addField} variant="outline" className="mt-3 border-sky-600 text-sky-400 hover:bg-sky-700/20 hover:text-sky-300">
-            Add Field
-          </Button>
-        </div>
-        <Button
-          type="submit"
-          disabled={isLoadingScrape || !formData.dynamicUrl || !formData.dynamicContainerSelector || formData.dynamicFields.some(f => !f.name || !f.selector)}
-          className="w-full bg-sky-600 hover:bg-sky-700"
-        >
-          {isLoadingScrape ? "Scraping..." : "Scrape"}
-        </Button>
-        {isLoadingScrape && (
-          <Button
-            type="button"
-            onClick={handleCancel}
-            variant="destructive"
-            className="w-full mt-2"
-          >
-            Cancel Scraping
-          </Button>
+
+          {/* Pagination Controls */}
+          <div className={cn(
+            "rounded-lg border border-[var(--border)]/70 bg-[var(--background)] transition-all duration-300 ease-in-out",
+            formData.dynamicEnablePagination ? "shadow-[0_0_15px_var(--ring)]" : ""
+          )}>
+            <div 
+              className={cn( // Keep styling for hover and active state, but remove direct onClick
+                "flex items-center justify-between space-x-3 p-4 rounded-t-lg cursor-pointer hover:bg-[var(--muted)]/20 transition-colors",
+                formData.dynamicEnablePagination && "bg-[var(--muted)]/10 border-b border-[var(--border)]/30"
+              )}
+              // onClick is removed here. Interaction relies on Label htmlFor -> Checkbox onCheckedChange
+            >
+              <div className="flex items-center space-x-3">
+                <NeonCheckbox
+                  id="enable-pagination"
+                  checked={formData.dynamicEnablePagination}
+                  onChange={e => setFormData(prev => {
+                    const baseState = (typeof prev === 'object' && prev !== null) ? prev : {};
+                    return { 
+                      ...baseState, 
+                      dynamicEnablePagination: e.target.checked 
+                    };
+                  })}
+                  className="h-6 w-6 border-[var(--input)] data-[state=checked]:bg-[var(--primary)] data-[state=checked]:text-[var(--primary-foreground)] focus:ring-[var(--ring)]"
+                  aria-labelledby="enable-pagination-label"
+                />
+                <Label 
+                  id="enable-pagination-label"
+                  htmlFor="enable-pagination" 
+                  className={cn(
+                    "text-lg font-medium cursor-pointer",
+                    formData.dynamicEnablePagination ? "text-[var(--primary)]" : "text-[var(--muted-foreground)]"
+                  )}
+                >
+                  Enable Pagination
+                </Label>
+              </div>
+              {formData.dynamicEnablePagination ? <ChevronDown className="h-6 w-6 text-[var(--primary)]" /> : <ChevronRight className="h-6 w-6 text-[var(--muted-foreground)]" />}
+            </div>
+
+            {formData.dynamicEnablePagination && (
+              <div className="space-y-4 p-4 border-t border-[var(--border)]/70">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+                  <div>
+                    <Label htmlFor="start-page" className="text-base text-[var(--muted-foreground)] block mb-1">Start Page</Label>
+                    <Input
+                      id="start-page"
+                      type="number"
+                      min="1"
+                      value={formData.dynamicStartPage}
+                      onChange={e => setFormData(prev => ({ ...prev, dynamicStartPage: parseInt(e.target.value, 10) || 1 }))}
+                      className="text-base p-2 bg-[var(--muted)] text-[var(--foreground)] border-[var(--input)] focus:ring-[var(--ring)] focus:border-[var(--ring)] rounded-md"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="end-page" className="text-base text-[var(--muted-foreground)] block mb-1">End Page</Label>
+                    <Input
+                      id="end-page"
+                      type="number"
+                      min={formData.dynamicStartPage || 1}
+                      value={formData.dynamicEndPage}
+                      onChange={e => setFormData(prev => ({ ...prev, dynamicEndPage: parseInt(e.target.value, 10) || (formData.dynamicStartPage || 1) }))}
+                      className="text-base p-2 bg-[var(--muted)] text-[var(--foreground)] border-[var(--input)] focus:ring-[var(--ring)] focus:border-[var(--ring)] rounded-md"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <Label htmlFor="pagination-type" className="text-base text-[var(--muted-foreground)] block mb-1">Pagination Type</Label>
+                  <Select
+                    value={formData.dynamicPaginationType}
+                    onValueChange={value => setFormData(prev => ({ ...prev, dynamicPaginationType: value }))}
+                  >
+                    <SelectTrigger 
+                      id="pagination-type" 
+                      className="w-full text-base bg-[var(--muted)] text-[var(--foreground)] border-[var(--input)] focus:ring-[var(--ring)] focus:border-[var(--ring)] rounded-md shadow-sm data-[placeholder]:text-[var(--muted-foreground)]/70"
+                    >
+                      <SelectValue placeholder="Select pagination type" />
+                    </SelectTrigger>
+                    <SelectContent 
+                      className="bg-[var(--popover)] text-[var(--popover-foreground)] border-[var(--border)]"
+                    >
+                      <SelectItem value="Next Button" className="text-base focus:bg-[var(--accent)] focus:text-[var(--accent-foreground)] data-[state=checked]:bg-[var(--primary)] data-[state=checked]:text-[var(--primary-foreground)]">Next Button</SelectItem>
+                      <SelectItem value="URL Parameter" className="text-base focus:bg-[var(--accent)] focus:text-[var(--accent-foreground)] data-[state=checked]:bg-[var(--primary)] data-[state=checked]:text-[var(--primary-foreground)]">URL Parameter</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                {formData.dynamicPaginationType === "URL Parameter" && (
+                  <div>
+                    <Label htmlFor="page-param" className="text-base text-[var(--muted-foreground)] block mb-1">Page Parameter Name</Label>
+                    <Input
+                      id="page-param"
+                      type="text"
+                      value={formData.dynamicPageParam}
+                      onChange={e => setFormData(prev => ({ ...prev, dynamicPageParam: e.target.value }))}
+                      placeholder="e.g., page, p, pg"
+                      className="text-base p-2 bg-[var(--muted)] text-[var(--foreground)] border-[var(--input)] focus:ring-[var(--ring)] focus:border-[var(--ring)] rounded-md"
+                    />
+                  </div>
+                )}
+                {formData.dynamicPaginationType === "Next Button" && (
+                  <div>
+                    <Label htmlFor="next-button-selector" className="text-base text-[var(--muted-foreground)] block mb-1">Next Button Selector (CSS or XPath)</Label>
+                    <Input
+                      id="next-button-selector"
+                      type="text"
+                      value={formData.dynamicNextButtonSelector}
+                      onChange={e => setFormData(prev => ({ ...prev, dynamicNextButtonSelector: e.target.value }))}
+                      placeholder="e.g., .pagination-next a, //button[text()='Next']"
+                      className="text-base p-2 bg-[var(--muted)] text-[var(--foreground)] border-[var(--input)] focus:ring-[var(--ring)] focus:border-[var(--ring)] rounded-md"
+                    />
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Fields to Extract */}
+          <div className="p-6 rounded-lg border border-[var(--border)]/70 bg-[var(--background)] space-y-4 shadow-[0_0_10px_var(--secondary)]">
+            <Label className="text-xl font-semibold text-[var(--secondary)] mb-3 block">Fields to Extract</Label>
+            <div className="space-y-4">
+              {formData.dynamicFields.map((field, idx) => (
+                <FieldRow
+                  key={idx}
+                  name={field.name}
+                  selector={field.selector}
+                  onChange={(key, value) => handleFieldChange(idx, key, value)}
+                  onRemove={() => removeField(idx)}
+                  canRemove={formData.dynamicFields.length > 1}
+                />
+              ))}
+            </div>
+            <Button 
+              type="button" 
+              onClick={addField} 
+              variant="outline" 
+              className="mt-4 text-lg py-2.5 px-5 border-[var(--primary)] text-[var(--primary)] hover:bg-[var(--primary)]/20 hover:text-[var(--accent)] rounded-md hover:shadow-[0_0_10px_var(--primary)] transition-all duration-300 ease-in-out"
+            >
+              Add Field
+            </Button>
+          </div>
+
+          <div className="space-y-3 pt-4">
+            <Button
+              type="submit"
+              disabled={isLoadingScrape || !formData.dynamicUrl || !formData.dynamicContainerSelector || formData.dynamicFields.some(f => !f.name || !f.selector)}
+              className="w-full text-xl py-3.5 bg-[var(--primary)] hover:bg-[var(--primary)]/90 text-[var(--primary-foreground)] rounded-md hover:shadow-[0_0_15px_var(--primary)] transition-all duration-300 ease-in-out"
+            >
+              {isLoadingScrape ? "Scraping..." : "Scrape Dynamic URL"}
+            </Button>
+            {isLoadingScrape && (
+              <Button
+                type="button"
+                onClick={handleCancel}
+                variant="destructive"
+                className="w-full text-xl py-3.5 bg-[var(--destructive)] hover:bg-[var(--destructive)]/90 text-[var(--destructive-foreground)] rounded-md hover:shadow-[0_0_15px_var(--destructive)] transition-all duration-300 ease-in-out"
+              >
+                Cancel Scraping
+              </Button>
+            )}
+          </div>
+        </form>
+        {scrapeError && (
+          <div className="mt-8 text-[var(--destructive-foreground)] bg-[var(--destructive)]/30 p-4 rounded-md border border-[var(--destructive)]">
+            <p className="font-semibold text-lg">Error:</p>
+            <p>{scrapeError}</p>
+          </div>
         )}
-      </form>
-      {scrapeError && <div className="mt-4 text-red-400 bg-red-900/30 p-3 rounded-md">{scrapeError}</div>}
-      {scrapeResults && <Results data={scrapeResults.results || scrapeResults} fieldOrder={fieldOrder.length > 0 ? fieldOrder : null} taskId={scrapeResults.task_id} />}
-    </section>
+        {scrapeResults && (
+          <div className="mt-8">
+            <Results data={scrapeResults.results || scrapeResults} fieldOrder={fieldOrder.length > 0 ? fieldOrder : null} taskId={scrapeResults.task_id} />
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }

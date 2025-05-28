@@ -1,7 +1,6 @@
-
 @import "tw-animate-css";
 
-@custom-variant dark (&:is(.dark *));
+/* @custom-variant dark (&:is(.dark *)); */ /* Commented out as it's non-standard and might conflict with Tailwind's darkMode: 'class' */
 
 :root {
   font-family: "SF Mono", "Consolas", "Liberation Mono", Menlo, Courier, monospace; /* Monospaced font */
@@ -86,7 +85,7 @@ a {
   text-decoration: inherit;
 }
 a:hover {
-  color: var(--electric-blue); /* Electric blue for link hover */
+  color: var(--secondary); /* Electric blue for link hover - corrected to use defined var */
 }
 
 h1 {
@@ -175,12 +174,12 @@ button:focus-visible {
 }
 */
 
+/*
 @theme inline {
-  --radius-sm: calc(var(--radius) - 2px); /* Adjusted for potentially smaller base radius */
+  --radius-sm: calc(var(--radius) - 2px); 
   --radius-md: var(--radius);
   --radius-lg: calc(var(--radius) + 2px);
   --radius-xl: calc(var(--radius) + 4px);
-  /* ... rest of the @theme variables mapping to the new CSS vars ... */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -213,6 +212,7 @@ button:focus-visible {
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
 }
+*/
 
 /*
 @layer base {

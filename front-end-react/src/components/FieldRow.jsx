@@ -11,7 +11,7 @@ export default function FieldRow({ name, selector, onChange, onRemove, canRemove
         value={name}
         onChange={e => onChange("name", e.target.value)}
         required
-        className="flex-1 bg-slate-700 text-white border-slate-600 focus:ring-sky-500 focus:border-sky-500"
+        className="flex-1 text-base p-2.5 bg-[var(--muted)] text-[var(--foreground)] border-[var(--input)] focus:ring-[var(--ring)] focus:border-[var(--ring)] rounded-md placeholder:text-[var(--muted-foreground)]/70"
       />
       <Input
         type="text"
@@ -19,7 +19,7 @@ export default function FieldRow({ name, selector, onChange, onRemove, canRemove
         value={selector}
         onChange={e => onChange("selector", e.target.value)}
         required
-        className="flex-1 bg-slate-700 text-white border-slate-600 focus:ring-sky-500 focus:border-sky-500"
+        className="flex-1 text-base p-2.5 bg-[var(--muted)] text-[var(--foreground)] border-[var(--input)] focus:ring-[var(--ring)] focus:border-[var(--ring)] rounded-md placeholder:text-[var(--muted-foreground)]/70"
       />
       {canRemove && (
         <Button
@@ -28,7 +28,7 @@ export default function FieldRow({ name, selector, onChange, onRemove, canRemove
           aria-label="Remove field"
           variant="destructive"
           size="icon"
-          className="bg-red-700 hover:bg-red-800"
+          className="bg-[var(--destructive)] hover:bg-[var(--destructive)]/90 text-[var(--destructive-foreground)] hover:shadow-[0_0_10px_var(--destructive)] rounded-md transition-all duration-300 ease-in-out"
         >
           &times;
         </Button>
