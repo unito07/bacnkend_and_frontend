@@ -6,6 +6,7 @@ const initialScraperFormData = {
   dynamicContainerSelector: "",
   dynamicEnableScrolling: false,
   dynamicMaxScrolls: 5,
+  dynamicScrollToEndPage: false, // Added
   dynamicFields: [{ name: "", selector: "" }],
   dynamicEnablePagination: false,
   dynamicStartPage: 1,

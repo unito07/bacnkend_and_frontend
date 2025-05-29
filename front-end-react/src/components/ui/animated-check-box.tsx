@@ -143,7 +143,7 @@ const NeonCheckbox: React.FC<NeonCheckboxProps> = ({
       )}
 
       {/* Add keyframes as a style tag */}
-      <style jsx>{`
+      <style>{`
         @keyframes borderFlow1 {
           0% { transform: translateX(0); }
           100% { transform: translateX(200%); }

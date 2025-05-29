@@ -78,7 +78,7 @@ def scrape_data(url: str):
         return {"error": str(e)}
 
 class DynamicWebScraper:
-    def __init__(self, delay=2, timeout=10, max_retries=3, proxy=None, scroll_pause_time=2):
+    def __init__(self, delay=2, timeout=10, max_retries=3, proxy=None, scroll_pause_time=2.5): # scroll_to_end_page will be passed as a method argument, not an instance attribute
         self.delay = delay
         self.timeout = timeout
         self.max_retries = max_retries
@@ -139,20 +139,35 @@ class DynamicWebScraper:
 
             raise
 
-    def _scroll_page(self, max_scrolls=5):
-        """Scroll the page to load more content"""
+    def _scroll_page(self, max_scrolls=5, scroll_to_end_page: bool = False):
+        """Scroll the page to load more content.
+        If scroll_to_end_page is True, max_scrolls is ignored and scrolling continues until no new content loads.
+        """
         try:
             scroll_count = 0
             last_height = self.driver.execute_script("return document.body.scrollHeight")
-            logger.info(f"Starting page scroll with max_scrolls={max_scrolls}")
+            scroll_type_log = "to end of page" if scroll_to_end_page else f"with max_scrolls={max_scrolls}"
+            logger.info(f"Starting page scroll {scroll_type_log}")
 
-            while scroll_count < max_scrolls:
+            stable_height_checks = 0
+            required_stable_checks = 3 # Number of consecutive times height must be stable before stopping
+
+            while True: # Loop condition managed inside
                 if not scraper_should_run:
                     logger.info("Stop signal received during scroll. Exiting scroll loop.")
                     break
+
+                # Conditional check for max_scrolls if not scrolling to end
+                if not scroll_to_end_page and scroll_count >= max_scrolls:
+                    logger.info(f"Reached max_scrolls limit of {max_scrolls}.")
+                    break
+
                 # Scroll down to bottom
                 self.driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-                logger.info(f"Performed scroll {scroll_count + 1}/{max_scrolls}")
+                scroll_attempt_log = f"scroll attempt {scroll_count + 1}"
+                if not scroll_to_end_page:
+                    scroll_attempt_log += f"/{max_scrolls}"
+                logger.info(f"Performed {scroll_attempt_log}")
 
                 # Wait for new content to load
                 logger.info(f"Waiting {self.scroll_pause_time}s for content to load after scroll...")
@@ -163,22 +178,42 @@ class DynamicWebScraper:
                 # Calculate new scroll height
                 new_height = self.driver.execute_script("return document.body.scrollHeight")
 
-                # Break if no more new content (height didn't change)
                 if new_height == last_height:
-                    logger.info("Reached end of page or no more content loading")
-                    break
+                    if scroll_to_end_page:
+                        stable_height_checks += 1
+                        logger.info(f"Page height {new_height} remained stable. Check {stable_height_checks}/{required_stable_checks}.")
+                        if stable_height_checks >= required_stable_checks:
+                            logger.info(f"Page height has been stable for {required_stable_checks} checks. Assuming end of page.")
+                            break
+                    else: # Not scrolling to end, so break immediately if height is stable
+                        logger.info("Reached end of page or no more content loading (height did not change).")
+                        break
+                else: # Height changed
+                    if scroll_to_end_page:
+                        stable_height_checks = 0 # Reset stability counter
+                    last_height = new_height
+                    scroll_count += 1 # Increment scroll_count only when height actually changes or it's the first scroll after a stable period that then changes
+                    logger.info(f"Page height changed to {new_height}. Continuing scroll. Resetting stability checks if any.")
+                
+                # If not scrolling to end, scroll_count is already managed by the max_scrolls check at the loop start
+                # If scrolling to end, we increment scroll_count when height changes to keep track of actual effective scrolls.
+                # For logging purposes, if stable_height_checks > 0 but < required_stable_checks, we still increment scroll_count
+                # to reflect a scroll attempt was made.
+                if new_height == last_height and scroll_to_end_page and stable_height_checks < required_stable_checks:
+                    # This case means height was stable, but we haven't met required_stable_checks, so we scrolled again.
+                    # We already logged the scroll attempt. We don't increment scroll_count here as it's not a "new content" scroll.
+                    pass # Handled by the stability check logic
+                elif new_height != last_height: # This was already handled above by resetting stable_height_checks and incrementing scroll_count
+                    pass
 
-                last_height = new_height
-                scroll_count += 1
-                logger.info(f"Page height changed from {last_height} to {new_height}")
 
-            logger.info(f"Completed scrolling with {scroll_count} scrolls performed")
+            logger.info(f"Completed scrolling with {scroll_count} effective content-loading scrolls performed.")
             return True
         except Exception as e:
             logger.error(f"Error while scrolling: {str(e)}")
             return False
 
-    def _make_dynamic_request(self, url, enable_scrolling=False, max_scrolls=5):
+    def _make_dynamic_request(self, url, enable_scrolling=False, max_scrolls=5, scroll_to_end_page: bool = False):
         """Load page with Selenium and wait for dynamic content"""
         global scraper_should_run
         if not scraper_should_run:
@@ -222,7 +257,7 @@ class DynamicWebScraper:
 
             if enable_scrolling:
                 logger.info("Scrolling enabled, starting scroll process...")
-                if not self._scroll_page(max_scrolls): # _scroll_page needs to return False on cancel
+                if not self._scroll_page(max_scrolls=max_scrolls, scroll_to_end_page=scroll_to_end_page): # Pass scroll_to_end_page
                     logger.info("Scrolling was cancelled or failed.")
                     return False
             
@@ -371,7 +406,7 @@ class DynamicWebScraper:
             logger.error(f"Error processing dynamic page data: {str(e)}")
             return pd.DataFrame()
 
-    def scrape_dynamic_page(self, url, container_selector, custom_fields, enable_scrolling=False, max_scrolls=5):
+    def scrape_dynamic_page(self, url, container_selector, custom_fields, enable_scrolling=False, max_scrolls=5, scroll_to_end_page: bool = False):
         """Scrape data from a dynamic page"""
         global scraper_should_run
         try:
@@ -380,7 +415,7 @@ class DynamicWebScraper:
                 logger.info(f"Scrape for {url} cancelled before _make_dynamic_request.")
                 return pd.DataFrame()
 
-            if self._make_dynamic_request(url, enable_scrolling, max_scrolls):
+            if self._make_dynamic_request(url, enable_scrolling, max_scrolls, scroll_to_end_page): # Pass scroll_to_end_page
                 if not scraper_should_run: # Check after _make_dynamic_request if it was cancelled during
                     logger.info(f"Scrape for {url} cancelled after _make_dynamic_request succeeded but before processing.")
                     return pd.DataFrame()
@@ -394,7 +429,7 @@ class DynamicWebScraper:
 
     def scrape_dynamic_with_pagination(self, url, container_selector, custom_fields,
                                      start_page, end_page, pagination_type, page_param=None,
-                                     enable_scrolling=False, max_scrolls=5,
+                                     enable_scrolling=False, max_scrolls=5, scroll_to_end_page: bool = False,
                                      next_button_selector=None): # Removed session_id
         """Scrape data from dynamic pages with pagination"""
         all_data = []
@@ -423,7 +458,7 @@ class DynamicWebScraper:
                 logger.info(f"Processing page {page}")
 
                 if enable_scrolling:
-                    self._scroll_page(max_scrolls)
+                    self._scroll_page(max_scrolls=max_scrolls, scroll_to_end_page=scroll_to_end_page) # Pass scroll_to_end_page
 
                 # Extract data from current page
                 page_df = self._process_dynamic_page_data(container_selector, custom_fields)
@@ -558,6 +593,7 @@ def scrape_dynamic_with_pagination(
     page_param: Optional[str] = None,
     enable_scrolling: bool = False,
     max_scrolls: int = 5,
+    scroll_to_end_page: bool = False, # Added
     next_button_selector: Optional[str] = None
 ):
     """
@@ -591,6 +627,7 @@ def scrape_dynamic_with_pagination(
             page_param=page_param,
             enable_scrolling=enable_scrolling,
             max_scrolls=max_scrolls,
+            scroll_to_end_page=scroll_to_end_page, # Pass scroll_to_end_page
             next_button_selector=next_button_selector
             # session_id is not passed from main.py, so it will use its default (None) in the class method
         )
@@ -616,7 +653,8 @@ def scrape_dynamic_data(
     container_selector: str,
     custom_fields: list,
     enable_scrolling: bool = False,
-    max_scrolls: int = 5
+    max_scrolls: int = 5,
+    scroll_to_end_page: bool = False # Added
 ):
     """
     Scrapes dynamic data from the given URL using the provided container selector and custom fields.
@@ -663,7 +701,8 @@ def scrape_dynamic_data(
             container_selector,
             custom_fields,
             enable_scrolling=enable_scrolling,
-            max_scrolls=max_scrolls
+            max_scrolls=max_scrolls,
+            scroll_to_end_page=scroll_to_end_page # Pass scroll_to_end_page
         )
         # Convert DataFrame to list of dicts for JSON serialization
         logging.info(f"Dynamic scrape complete. Found {len(df)} records.")

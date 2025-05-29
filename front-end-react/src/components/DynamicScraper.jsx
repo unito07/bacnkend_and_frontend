@@ -12,6 +12,7 @@ import { AnimatedCounter } from "@/components/ui/animated-counter"; // Added Ani
 import { useScraperForm } from "../contexts/ScraperFormContext";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { AuroraText } from "@/components/magicui/aurora-text"; // Added AuroraText import
 
 // Dnd-kit imports
 import {
@@ -184,6 +185,7 @@ export default function DynamicScraper() {
         custom_fields: formData.dynamicFields.filter(f => f.name && f.selector).map(f => ({ ...f, name: f.name.trim() })),
         enable_scrolling: formData.dynamicEnableScrolling,
         max_scrolls: Number(formData.dynamicMaxScrolls),
+        scroll_to_end_page: formData.dynamicEnableScrolling ? formData.dynamicScrollToEndPage : false, // Only send if scrolling is enabled
         // Pagination fields
         enable_pagination: formData.dynamicEnablePagination,
         start_page: Number(formData.dynamicStartPage),
@@ -332,11 +334,47 @@ export default function DynamicScraper() {
               {formData.dynamicEnableScrolling ? <ChevronDown className="h-6 w-6 text-[var(--primary)]" /> : <ChevronRight className="h-6 w-6 text-[var(--muted-foreground)]" />}
             </div>
             {formData.dynamicEnableScrolling && (
-              <div className="p-4 border-t border-[var(--border)]/70">
-                <Label htmlFor="max-scrolls-counter" className="text-base text-[var(--muted-foreground)] block mb-2 text-center">Max Scrolls</Label>
-                <div className="flex items-center justify-center space-x-2">
-                  <Button
-                    type="button"
+              <div className="p-4 border-t border-[var(--border)]/70 space-y-6">
+                {/* Option 1: Define Max Scrolls (Manual) */}
+                <div className="flex items-center space-x-3">
+                  <NeonCheckbox
+                    id="define-max-scrolls"
+                    checked={!formData.dynamicScrollToEndPage} // Checked if NOT scrolling to end
+                    onCheckedChange={(checked) => {
+                      if (checked) {
+                        setFormData(prev => ({ ...prev, dynamicScrollToEndPage: false }));
+                      }
+                      // If unchecking this, and the other is also unchecked, what happens?
+                      // For simplicity, let's assume checking one unchecks the other.
+                      // If this is checked, dynamicScrollToEndPage becomes false.
+                    }}
+                    onChange={e => { // Use onChange for direct boolean
+                        if (e.target.checked) {
+                            setFormData(prev => ({ ...prev, dynamicScrollToEndPage: false }));
+                        }
+                    }}
+                    className="h-5 w-5 border-[var(--input)] data-[state=checked]:bg-[var(--primary)] data-[state=checked]:text-[var(--primary-foreground)] focus:ring-[var(--ring)]"
+                    aria-labelledby="define-max-scrolls-label"
+                  />
+                  <Label
+                    id="define-max-scrolls-label"
+                    htmlFor="define-max-scrolls"
+                    className={cn(
+                      "text-base font-medium cursor-pointer",
+                      !formData.dynamicScrollToEndPage ? "text-[var(--primary)]" : "text-[var(--muted-foreground)]"
+                    )}
+                  >
+                    Define Max Scrolls (Manual)
+                  </Label>
+                </div>
+
+                {/* Max Scrolls Input - Visible if "Define Max Scrolls" is chosen */}
+                {!formData.dynamicScrollToEndPage && (
+                  <div className="pl-8">
+                    <Label htmlFor="max-scrolls-counter" className="text-sm text-[var(--muted-foreground)] block mb-1 text-center">Number of Scrolls</Label>
+                    <div className="flex items-center justify-center space-x-2">
+                      <Button
+                        type="button"
                     variant="outline"
                     size="icon"
                     onClick={() => setFormData(prev => ({ ...prev, dynamicMaxScrolls: Math.max(1, (parseInt(prev.dynamicMaxScrolls, 10) || 1) - 1) }))}
@@ -390,8 +428,58 @@ export default function DynamicScraper() {
                     aria-label="Increase max scrolls"
                     disabled={editingMaxScrolls || editingStartPage || editingEndPage}
                   >
-                    <Plus className="h-4 w-4 text-[var(--foreground)]" />
-                  </Button>
+                      <Plus className="h-4 w-4 text-[var(--foreground)]" />
+                    </Button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Option 2: Scroll to End of Page (Auto) */}
+                <div className="flex items-center space-x-3 pt-2">
+                  <NeonCheckbox
+                    id="scroll-to-end-auto" // Changed ID to be unique
+                    checked={formData.dynamicScrollToEndPage}
+                    onCheckedChange={(checked) => { // Shadcn checkbox uses onCheckedChange
+                        if (checked) {
+                            setFormData(prev => ({ ...prev, dynamicScrollToEndPage: true }));
+                        }
+                         // If unchecking this, and the other is also unchecked, default to manual.
+                        else if (!checked && !(!formData.dynamicScrollToEndPage)) { // if unchecking this, and manual is also not checked
+                             setFormData(prev => ({ ...prev, dynamicScrollToEndPage: false })); // default to manual
+                        }
+                    }}
+                    onChange={e => { // Use onChange for direct boolean
+                        if (e.target.checked) {
+                             setFormData(prev => ({ ...prev, dynamicScrollToEndPage: true }));
+                        } else {
+                            // If unchecking "Scroll to End", default to "Define Max Scrolls" being active
+                            setFormData(prev => ({ ...prev, dynamicScrollToEndPage: false }));
+                        }
+                    }}
+                    className="h-5 w-5 border-[var(--input)] data-[state=checked]:bg-[var(--primary)] data-[state=checked]:text-[var(--primary-foreground)] focus:ring-[var(--ring)]"
+                    aria-labelledby="scroll-to-end-auto-label"
+                  />
+                  <Label
+                    id="scroll-to-end-auto-label"
+                    htmlFor="scroll-to-end-auto"
+                    className={cn(
+                      "text-base font-medium cursor-pointer",
+                      // Conditional text color is handled by AuroraText, but we keep other styles
+                      formData.dynamicScrollToEndPage ? "" : "text-[var(--muted-foreground)]" 
+                      // If not active, let muted-foreground apply to the container, Aurora will override text color itself.
+                      // If active, AuroraText will provide its own colors.
+                    )}
+                  >
+                    <AuroraText
+                      className={cn(
+                        "text-base font-medium", // Apply base font styles here
+                        formData.dynamicScrollToEndPage ? "" : "!text-[var(--muted-foreground)]"
+                      )}
+                      colors={["#B8FF00", "#00FFFF", "#FF2E88", "#A259FF"]} // Cyber Lime, Electric Blue, Hot Pink, Neon Purple
+                    >
+                      Scroll to End of Page
+                    </AuroraText>
+                  </Label>
                 </div>
               </div>
             )}

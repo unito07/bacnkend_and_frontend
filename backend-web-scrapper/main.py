@@ -152,6 +152,7 @@ async def scrape_dynamic(
         "custom_fields": list of {"name": str, "selector": str},
         "enable_scrolling": bool (optional),
         "max_scrolls": int (optional),
+        "scroll_to_end_page": bool (optional, defaults to False), # Added
         "enable_pagination": bool (optional),
         "start_page": int (optional),
         "end_page": int (optional),
@@ -177,6 +178,7 @@ async def scrape_dynamic(
         custom_fields = payload["custom_fields"]
         enable_scrolling = payload.get("enable_scrolling", False)
         max_scrolls = payload.get("max_scrolls", 5)
+        scroll_to_end_page = payload.get("scroll_to_end_page", False) # Added
 
         enable_pagination = payload.get("enable_pagination", False)
 
@@ -194,7 +196,8 @@ async def scrape_dynamic(
                 "end_page": end_page,
                 "pagination_type": pagination_type,
                 "page_param": page_param,
-                "next_button_selector": next_button_selector
+                "next_button_selector": next_button_selector,
+                "scroll_to_end_page": scroll_to_end_page # Added for logging
             }
 
             data_from_scraper_df = await asyncio.to_thread(
@@ -208,7 +211,8 @@ async def scrape_dynamic(
                 page_param=page_param,
                 next_button_selector=next_button_selector,
                 enable_scrolling=enable_scrolling,
-                max_scrolls=max_scrolls
+                max_scrolls=max_scrolls,
+                scroll_to_end_page=scroll_to_end_page # Added
             )
             # scrape_dynamic_with_pagination returns a DataFrame
             actual_scraped_results = data_from_scraper_df.to_dict(orient="records")
@@ -219,7 +223,8 @@ async def scrape_dynamic(
                 container_selector,
                 custom_fields,
                 enable_scrolling=enable_scrolling,
-                max_scrolls=max_scrolls
+                max_scrolls=max_scrolls,
+                scroll_to_end_page=scroll_to_end_page # Added
             )
             actual_scraped_results = data_from_scraper # This is already a list of dicts
         
