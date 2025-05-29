@@ -2,6 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Zap, Cpu, Code, PlayCircle, Terminal, ArrowRight, ShieldCheck, BarChart, Users } from 'lucide-react'; // Example icons
 import { HyperText } from '@/components/magicui/hyper-text'; // Import HyperText as named import
+import { EvervaultCard } from "@/components/ui/evervault-card"; // Import EvervaultCard
 
 // Placeholder for 8-bit style icons or pixel art (reverted to Lucide version)
 const PixelIcon = ({ icon: IconComponent, className }) => (
@@ -24,11 +25,12 @@ function LandingPage() {
 
       {/* Hero Section */}
       <section className="w-full h-screen flex flex-col items-center justify-center text-center p-8 relative">
-        {/* Floating visual effects placeholder */}
-        <div className="absolute top-1/4 left-1/4 w-16 h-16 bg-neon-purple rounded-full opacity-30 animate-pulse filter blur-xl"></div>
-        <div className="absolute bottom-1/4 right-1/4 w-24 h-24 bg-electric-blue rounded-full opacity-30 animate-ping filter blur-2xl"></div>
+        {/* Evervault Card replacing floating effects */}
+        <div className="absolute inset-0 z-0"> {/* Removed flex and centering, card will fill this */}
+          <EvervaultCard className="w-full h-full" /> {/* Changed to full width/height */}
+        </div>
         
-        <h1 className="text-5xl md:text-7xl font-bold mb-6 flex items-center justify-center">
+        <h1 className="text-5xl md:text-7xl font-bold mb-6 flex items-center justify-center relative z-10">
           <HyperText
             as="span" // Render as span to fit within h1
             className="text-neon-purple" // Apply styling
