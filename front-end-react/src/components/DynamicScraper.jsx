@@ -1,4 +1,4 @@
-import React, { useEffect } from "react"; // Added useEffect
+import React, { useEffect, useState } from "react"; // Added useEffect, useState
 import Results from "./Results";
 import FieldRow from "./FieldRow";
 import { Input } from "@/components/ui/input";
@@ -7,7 +7,8 @@ import { Label } from "@/components/ui/label";
 import { NeonCheckbox } from "@/components/ui/animated-check-box";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ChevronDown, ChevronRight, GripVertical } from 'lucide-react'; // GripVertical might not be needed here if only in FieldRow
+import { ChevronDown, ChevronRight, GripVertical, Plus, Minus } from 'lucide-react'; // Added Plus, Minus
+import { AnimatedCounter } from "@/components/ui/animated-counter"; // Added AnimatedCounter
 import { useScraperForm } from "../contexts/ScraperFormContext";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -79,6 +80,14 @@ export default function DynamicScraper() {
 
   const { isLoadingScrape, scrapeResults, scrapeError, lastOperationKey, taskId } = scrapeOperation;
 
+  // State for inline editing of page numbers
+  const [editingStartPage, setEditingStartPage] = useState(false);
+  const [tempStartPage, setTempStartPage] = useState(formData.dynamicStartPage);
+  const [editingEndPage, setEditingEndPage] = useState(false);
+  const [tempEndPage, setTempEndPage] = useState(formData.dynamicEndPage);
+  const [editingMaxScrolls, setEditingMaxScrolls] = useState(false);
+  const [tempMaxScrolls, setTempMaxScrolls] = useState(formData.dynamicMaxScrolls);
+
   // Ensure fields have unique IDs
   useEffect(() => {
     setFormData(prev => {
@@ -92,6 +101,33 @@ export default function DynamicScraper() {
       return prev;
     });
   }, [setFormData]);
+
+  // Effect to manage start and end page logic for pagination
+  useEffect(() => {
+    if (formData.dynamicEnablePagination) {
+      const currentStart = parseInt(formData.dynamicStartPage, 10) || 1;
+      const currentEnd = parseInt(formData.dynamicEndPage, 10);
+      let desiredStart = currentStart < 1 ? 1 : currentStart;
+      let desiredEnd = currentEnd;
+
+      if (isNaN(desiredEnd) || desiredEnd <= desiredStart) {
+        desiredEnd = desiredStart + 1;
+      }
+
+      if (formData.dynamicStartPage !== desiredStart || formData.dynamicEndPage !== desiredEnd) {
+        setFormData(prev => ({
+          ...prev,
+          dynamicStartPage: desiredStart,
+          dynamicEndPage: desiredEnd,
+        }));
+      }
+    }
+  }, [
+    formData.dynamicEnablePagination, 
+    formData.dynamicStartPage, 
+    formData.dynamicEndPage, 
+    setFormData
+  ]);
 
 
   const handleFieldChange = (id, key, value) => { // Changed idx to id
@@ -297,15 +333,66 @@ export default function DynamicScraper() {
             </div>
             {formData.dynamicEnableScrolling && (
               <div className="p-4 border-t border-[var(--border)]/70">
-                <Label htmlFor="max-scrolls" className="text-base text-[var(--muted-foreground)] block mb-1">Max Scrolls</Label>
-                <Input
-                  id="max-scrolls"
-                  type="number"
-                  min="1"
-                  value={formData.dynamicMaxScrolls}
-                  onChange={e => setFormData(prev => ({ ...prev, dynamicMaxScrolls: parseInt(e.target.value, 10) || 1 }))}
-                  className="w-28 text-base p-2 bg-[var(--muted)] text-[var(--foreground)] border-[var(--input)] focus:ring-[var(--ring)] focus:border-[var(--ring)] rounded-md"
-                />
+                <Label htmlFor="max-scrolls-counter" className="text-base text-[var(--muted-foreground)] block mb-2 text-center">Max Scrolls</Label>
+                <div className="flex items-center justify-center space-x-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setFormData(prev => ({ ...prev, dynamicMaxScrolls: Math.max(1, (parseInt(prev.dynamicMaxScrolls, 10) || 1) - 1) }))}
+                    className="border-[var(--input)] hover:bg-[var(--muted)]"
+                    aria-label="Decrease max scrolls"
+                    disabled={editingMaxScrolls || editingStartPage || editingEndPage}
+                  >
+                    <Minus className="h-4 w-4 text-[var(--foreground)]" />
+                  </Button>
+                  {editingMaxScrolls ? (
+                    <Input
+                      type="text"
+                      value={tempMaxScrolls}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (/^\d*$/.test(val)) {
+                          setTempMaxScrolls(val);
+                        }
+                      }}
+                      onBlur={() => {
+                        const finalVal = parseInt(tempMaxScrolls, 10);
+                        if (!isNaN(finalVal) && finalVal >= 1) {
+                          setFormData(prev => ({ ...prev, dynamicMaxScrolls: finalVal }));
+                        } else {
+                          setTempMaxScrolls(formData.dynamicMaxScrolls); // Revert
+                        }
+                        setEditingMaxScrolls(false);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.target.blur();
+                        } else if (e.key === 'Escape') {
+                          setTempMaxScrolls(formData.dynamicMaxScrolls);
+                          setEditingMaxScrolls(false);
+                        }
+                      }}
+                      className="w-16 text-center text-base p-1 bg-[var(--muted)] text-[var(--foreground)] border-[var(--input)] focus:ring-[var(--ring)] focus:border-[var(--ring)] rounded-md"
+                      autoFocus
+                    />
+                  ) : (
+                    <div onClick={() => { setTempMaxScrolls(formData.dynamicMaxScrolls); setEditingMaxScrolls(true); }} className="cursor-pointer">
+                      <AnimatedCounter value={parseInt(formData.dynamicMaxScrolls, 10) || 1} />
+                    </div>
+                  )}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setFormData(prev => ({ ...prev, dynamicMaxScrolls: (parseInt(prev.dynamicMaxScrolls, 10) || 1) + 1 }))}
+                    className="border-[var(--input)] hover:bg-[var(--muted)]"
+                    aria-label="Increase max scrolls"
+                    disabled={editingMaxScrolls || editingStartPage || editingEndPage}
+                  >
+                    <Plus className="h-4 w-4 text-[var(--foreground)]" />
+                  </Button>
+                </div>
               </div>
             )}
           </div>
@@ -353,27 +440,134 @@ export default function DynamicScraper() {
             {formData.dynamicEnablePagination && (
               <div className="space-y-4 p-4 border-t border-[var(--border)]/70">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+                  {/* Start Page Counter */}
                   <div>
-                    <Label htmlFor="start-page" className="text-base text-[var(--muted-foreground)] block mb-1">Start Page</Label>
-                    <Input
-                      id="start-page"
-                      type="number"
-                      min="1"
-                      value={formData.dynamicStartPage}
-                      onChange={e => setFormData(prev => ({ ...prev, dynamicStartPage: parseInt(e.target.value, 10) || 1 }))}
-                      className="text-base p-2 bg-[var(--muted)] text-[var(--foreground)] border-[var(--input)] focus:ring-[var(--ring)] focus:border-[var(--ring)] rounded-md"
-                    />
+                    <Label htmlFor="start-page-counter" className="text-base text-[var(--muted-foreground)] block mb-2 text-center">Start Page</Label>
+                    <div className="flex items-center justify-center space-x-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        onClick={() => setFormData(prev => ({ ...prev, dynamicStartPage: Math.max(1, (parseInt(prev.dynamicStartPage, 10) || 1) - 1) }))}
+                        className="border-[var(--input)] hover:bg-[var(--muted)]"
+                        aria-label="Decrease start page"
+                        disabled={editingStartPage || editingEndPage}
+                      >
+                        <Minus className="h-4 w-4 text-[var(--foreground)]" />
+                      </Button>
+                      {editingStartPage ? (
+                        <Input
+                          type="text" // Use text to allow intermediate non-numeric input before validation
+                          value={tempStartPage}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            // Allow only digits or empty string for intermediate input
+                            if (/^\d*$/.test(val)) {
+                              setTempStartPage(val);
+                            }
+                          }}
+                          onBlur={() => {
+                            const finalVal = parseInt(tempStartPage, 10);
+                            if (!isNaN(finalVal) && finalVal >= 1) {
+                              setFormData(prev => ({ ...prev, dynamicStartPage: finalVal }));
+                            } else {
+                              // Reset to current formData value if input is invalid
+                              setTempStartPage(formData.dynamicStartPage);
+                            }
+                            setEditingStartPage(false);
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.target.blur(); // Trigger onBlur to save
+                            } else if (e.key === 'Escape') {
+                              setTempStartPage(formData.dynamicStartPage); // Revert
+                              setEditingStartPage(false);
+                            }
+                          }}
+                          className="w-16 text-center text-base p-1 bg-[var(--muted)] text-[var(--foreground)] border-[var(--input)] focus:ring-[var(--ring)] focus:border-[var(--ring)] rounded-md"
+                          autoFocus
+                        />
+                      ) : (
+                        <div onClick={() => { setTempStartPage(formData.dynamicStartPage); setEditingStartPage(true); }} className="cursor-pointer">
+                          <AnimatedCounter value={parseInt(formData.dynamicStartPage, 10) || 1} />
+                        </div>
+                      )}
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        onClick={() => setFormData(prev => ({ ...prev, dynamicStartPage: (parseInt(prev.dynamicStartPage, 10) || 1) + 1 }))}
+                        className="border-[var(--input)] hover:bg-[var(--muted)]"
+                        aria-label="Increase start page"
+                        disabled={editingStartPage || editingEndPage}
+                      >
+                        <Plus className="h-4 w-4 text-[var(--foreground)]" />
+                      </Button>
+                    </div>
                   </div>
+                  {/* End Page Counter */}
                   <div>
-                    <Label htmlFor="end-page" className="text-base text-[var(--muted-foreground)] block mb-1">End Page</Label>
-                    <Input
-                      id="end-page"
-                      type="number"
-                      min={formData.dynamicStartPage || 1}
-                      value={formData.dynamicEndPage}
-                      onChange={e => setFormData(prev => ({ ...prev, dynamicEndPage: parseInt(e.target.value, 10) || (formData.dynamicStartPage || 1) }))}
-                      className="text-base p-2 bg-[var(--muted)] text-[var(--foreground)] border-[var(--input)] focus:ring-[var(--ring)] focus:border-[var(--ring)] rounded-md"
-                    />
+                    <Label htmlFor="end-page-counter" className="text-base text-[var(--muted-foreground)] block mb-2 text-center">End Page</Label>
+                    <div className="flex items-center justify-center space-x-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        onClick={() => setFormData(prev => ({ ...prev, dynamicEndPage: Math.max((parseInt(prev.dynamicStartPage, 10) || 1) + 1, (parseInt(prev.dynamicEndPage, 10) || 0) - 1) }))}
+                        className="border-[var(--input)] hover:bg-[var(--muted)]"
+                        aria-label="Decrease end page"
+                        disabled={editingStartPage || editingEndPage}
+                      >
+                        <Minus className="h-4 w-4 text-[var(--foreground)]" />
+                      </Button>
+                      {editingEndPage ? (
+                        <Input
+                          type="text"
+                          value={tempEndPage}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            if (/^\d*$/.test(val)) {
+                              setTempEndPage(val);
+                            }
+                          }}
+                          onBlur={() => {
+                            const finalVal = parseInt(tempEndPage, 10);
+                            const startVal = parseInt(formData.dynamicStartPage, 10) || 1;
+                            if (!isNaN(finalVal) && finalVal > startVal) {
+                              setFormData(prev => ({ ...prev, dynamicEndPage: finalVal }));
+                            } else {
+                              setTempEndPage(formData.dynamicEndPage); // Revert
+                            }
+                            setEditingEndPage(false);
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.target.blur();
+                            } else if (e.key === 'Escape') {
+                              setTempEndPage(formData.dynamicEndPage);
+                              setEditingEndPage(false);
+                            }
+                          }}
+                          className="w-16 text-center text-base p-1 bg-[var(--muted)] text-[var(--foreground)] border-[var(--input)] focus:ring-[var(--ring)] focus:border-[var(--ring)] rounded-md"
+                          autoFocus
+                        />
+                      ) : (
+                        <div onClick={() => { setTempEndPage(formData.dynamicEndPage); setEditingEndPage(true); }} className="cursor-pointer">
+                          <AnimatedCounter value={parseInt(formData.dynamicEndPage, 10) || ((parseInt(formData.dynamicStartPage, 10) || 1) + 1)} />
+                        </div>
+                      )}
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        onClick={() => setFormData(prev => ({ ...prev, dynamicEndPage: (parseInt(prev.dynamicEndPage, 10) || 0) + 1 }))}
+                        className="border-[var(--input)] hover:bg-[var(--muted)]"
+                        aria-label="Increase end page"
+                        disabled={editingStartPage || editingEndPage}
+                      >
+                        <Plus className="h-4 w-4 text-[var(--foreground)]" />
+                      </Button>
+                    </div>
                   </div>
                 </div>
                 <div>
