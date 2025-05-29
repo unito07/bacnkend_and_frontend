@@ -1,10 +1,21 @@
 import React from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { GripVertical } from 'lucide-react'; // Import a drag handle icon
 
-export default function FieldRow({ name, selector, onChange, onRemove, canRemove }) {
+// Update props to include dnd-kit related attributes and listeners
+export default function FieldRow({ id, name, selector, onChange, onRemove, canRemove, attributes, listeners, style }) {
   return (
-    <div className="flex items-center space-x-2">
+    <div ref={style?.ref} style={style?.style} {...attributes} className="flex items-center space-x-2 bg-[var(--background)] p-2 rounded-md border border-[var(--border)]/50">
+      {/* Drag Handle */}
+      <button 
+        {...listeners} 
+        type="button" 
+        className="p-1.5 cursor-grab active:cursor-grabbing text-[var(--muted-foreground)] hover:text-[var(--primary)]"
+        aria-label="Drag to reorder field"
+      >
+        <GripVertical size={20} />
+      </button>
       <Input
         type="text"
         placeholder="Field name (e.g., title, price)"

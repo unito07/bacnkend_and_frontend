@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react"; // Added useEffect
 import Results from "./Results";
 import FieldRow from "./FieldRow";
 import { Input } from "@/components/ui/input";
@@ -7,12 +7,63 @@ import { Label } from "@/components/ui/label";
 import { NeonCheckbox } from "@/components/ui/animated-check-box";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ChevronDown, ChevronRight } from 'lucide-react';
+import { ChevronDown, ChevronRight, GripVertical } from 'lucide-react'; // GripVertical might not be needed here if only in FieldRow
 import { useScraperForm } from "../contexts/ScraperFormContext";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils"; // Assuming cn utility is available for class merging
+import { cn } from "@/lib/utils";
+
+// Dnd-kit imports
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+
+// Helper to generate unique IDs
+const generateUniqueId = () => Date.now().toString(36) + Math.random().toString(36).substring(2, 9);
+
+// SortableFieldRow wrapper component
+function SortableFieldRow(props) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging, // Can be used for styling while dragging
+  } = useSortable({ id: props.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1, // Example: reduce opacity when dragging
+    zIndex: isDragging ? 100 : 'auto', // Ensure dragging item is on top
+  };
+
+  return (
+    <FieldRow
+      ref={setNodeRef}
+      style={{ ref: setNodeRef, style }} // Pass ref and style to FieldRow
+      {...props}
+      attributes={attributes}
+      listeners={listeners}
+    />
+  );
+}
+
 
 export default function DynamicScraper() {
   const { 
@@ -28,25 +79,61 @@ export default function DynamicScraper() {
 
   const { isLoadingScrape, scrapeResults, scrapeError, lastOperationKey, taskId } = scrapeOperation;
 
-  const handleFieldChange = (idx, key, value) => {
+  // Ensure fields have unique IDs
+  useEffect(() => {
+    setFormData(prev => {
+      const needsUpdate = prev.dynamicFields.some(f => !f.id);
+      if (needsUpdate) {
+        return {
+          ...prev,
+          dynamicFields: prev.dynamicFields.map(f => f.id ? f : { ...f, id: generateUniqueId() }),
+        };
+      }
+      return prev;
+    });
+  }, [setFormData]);
+
+
+  const handleFieldChange = (id, key, value) => { // Changed idx to id
     setFormData(prev => ({
       ...prev,
-      dynamicFields: prev.dynamicFields.map((f, i) => (i === idx ? { ...f, [key]: value } : f)),
+      dynamicFields: prev.dynamicFields.map(f => (f.id === id ? { ...f, [key]: value } : f)),
     }));
   };
 
   const addField = () => {
     setFormData(prev => ({
       ...prev,
-      dynamicFields: [...prev.dynamicFields, { name: "", selector: "" }],
+      dynamicFields: [...prev.dynamicFields, { id: generateUniqueId(), name: "", selector: "" }],
     }));
   };
 
-  const removeField = idx => {
+  const removeField = id => { // Changed idx to id
     setFormData(prev => ({
       ...prev,
-      dynamicFields: prev.dynamicFields.length > 1 ? prev.dynamicFields.filter((_, i) => i !== idx) : prev.dynamicFields,
+      dynamicFields: prev.dynamicFields.length > 1 ? prev.dynamicFields.filter(f => f.id !== id) : prev.dynamicFields,
     }));
+  };
+
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  const handleDragEnd = (event) => {
+    const { active, over } = event;
+    if (active.id !== over.id) {
+      setFormData((prev) => {
+        const oldIndex = prev.dynamicFields.findIndex((field) => field.id === active.id);
+        const newIndex = prev.dynamicFields.findIndex((field) => field.id === over.id);
+        return {
+          ...prev,
+          dynamicFields: arrayMove(prev.dynamicFields, oldIndex, newIndex),
+        };
+      });
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -342,18 +429,30 @@ export default function DynamicScraper() {
           {/* Fields to Extract */}
           <div className="p-6 rounded-lg border border-[var(--border)]/70 bg-[var(--background)] space-y-4 shadow-[0_0_10px_var(--secondary)]">
             <Label className="text-xl font-semibold text-[var(--secondary)] mb-3 block">Fields to Extract</Label>
-            <div className="space-y-4">
-              {formData.dynamicFields.map((field, idx) => (
-                <FieldRow
-                  key={idx}
-                  name={field.name}
-                  selector={field.selector}
-                  onChange={(key, value) => handleFieldChange(idx, key, value)}
-                  onRemove={() => removeField(idx)}
-                  canRemove={formData.dynamicFields.length > 1}
-                />
-              ))}
-            </div>
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleDragEnd}
+            >
+              <SortableContext
+                items={formData.dynamicFields.map(f => f.id)} // Use IDs for items
+                strategy={verticalListSortingStrategy}
+              >
+                <div className="space-y-3"> {/* Added a wrapper for spacing between sortable items */}
+                  {formData.dynamicFields.map((field) => ( // field still has idx from map if needed, but id is primary
+                    <SortableFieldRow
+                      key={field.id} // Use unique ID as key
+                      id={field.id}   // Pass ID to SortableFieldRow
+                      name={field.name}
+                      selector={field.selector}
+                      onChange={(key, value) => handleFieldChange(field.id, key, value)}
+                      onRemove={() => removeField(field.id)}
+                      canRemove={formData.dynamicFields.length > 1}
+                    />
+                  ))}
+                </div>
+              </SortableContext>
+            </DndContext>
             <Button 
               type="button" 
               onClick={addField} 
