@@ -72,12 +72,12 @@ def create_log_entry(log_data: Dict[str, Any]) -> Dict[str, Any]:
     except Exception as e:
         return {"error": f"Failed to create log entry: {str(e)}"}
 
-def get_all_log_entries(start_date: Optional[str] = None, end_date: Optional[str] = None) -> List[Dict[str, Any]]:
-    """Retrieves all log entries, optionally filtered by date range."""
+def get_all_log_entries(start_date: Optional[str] = None, end_date: Optional[str] = None, status: Optional[str] = None) -> List[Dict[str, Any]]:
+    """Retrieves all log entries, optionally filtered by date range and status."""
     logs_dir = get_log_storage_path()
-    print(f"Filtering logs. Received start_date: {start_date} (type: {type(start_date)}), end_date: {end_date} (type: {type(end_date)})") # DEBUG
+    # print(f"Filtering logs. Received start_date: {start_date}, end_date: {end_date}, status: {status}") # DEBUG
     if not logs_dir.exists():
-        print("Logs directory does not exist.") # DEBUG
+        # print("Logs directory does not exist.") # DEBUG
         return []
     
     all_log_entries = []
@@ -96,9 +96,9 @@ def get_all_log_entries(start_date: Optional[str] = None, end_date: Optional[str
     if start_date:
         try:
             start_dt = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
-            print(f"Parsed start_dt: {start_dt} (date part: {start_dt.date()})") # DEBUG
+            # print(f"Parsed start_dt: {start_dt} (date part: {start_dt.date()})") # DEBUG
         except ValueError:
-            print(f"Warning: Could not parse start_date: {start_date}")
+            # print(f"Warning: Could not parse start_date: {start_date}") # DEBUG
             start_dt = None # Ensure it's None if parsing fails
 
     if end_date:
@@ -109,30 +109,30 @@ def get_all_log_entries(start_date: Optional[str] = None, end_date: Optional[str
             from datetime import timedelta
             end_dt_exclusive_upper_bound = datetime.combine(end_dt_temp.date() + timedelta(days=1), datetime.min.time()).replace(tzinfo=end_dt_temp.tzinfo)
             end_dt = end_dt_exclusive_upper_bound # Store this for comparison logic
-            print(f"Parsed end_date '{end_date}' to exclusive upper bound for filtering: {end_dt_exclusive_upper_bound}") # DEBUG
+            # print(f"Parsed end_date '{end_date}' to exclusive upper bound for filtering: {end_dt_exclusive_upper_bound}") # DEBUG
         except ValueError:
-            print(f"Warning: Could not parse end_date: {end_date}")
+            # print(f"Warning: Could not parse end_date: {end_date}") # DEBUG
             end_dt = None # Ensure it's None if parsing fails
     
-    print(f"Filtering with start_dt: {start_dt}, end_dt (exclusive upper bound): {end_dt}") # DEBUG
+    # print(f"Filtering with start_dt: {start_dt}, end_dt (exclusive upper bound): {end_dt}") # DEBUG
 
     for log_idx, log in enumerate(all_log_entries):
         log_timestamp_str = log.get("timestamp")
         if not log_timestamp_str:
-            print(f"Log {log_idx + 1}/{len(all_log_entries)}: No timestamp found. Skipping.") # DEBUG
+            # print(f"Log {log_idx + 1}/{len(all_log_entries)}: No timestamp found. Skipping.") # DEBUG
             continue
 
         try:
             # Ensure it's a string and strip whitespace
             if not isinstance(log_timestamp_str, str):
-                print(f"Log {log_idx + 1}/{len(all_log_entries)}: Timestamp is not a string: {type(log_timestamp_str)}, value: {repr(log_timestamp_str)}. Skipping.") # DEBUG
+                # print(f"Log {log_idx + 1}/{len(all_log_entries)}: Timestamp is not a string: {type(log_timestamp_str)}, value: {repr(log_timestamp_str)}. Skipping.") # DEBUG
                 continue
             
             cleaned_timestamp_str = log_timestamp_str.strip()
             log_dt = datetime.fromisoformat(cleaned_timestamp_str.replace('Z', '+00:00'))
             # print(f"Log {log_idx + 1}/{len(all_log_entries)}: Parsed log_dt: {log_dt} (date part: {log_dt.date()})") # DEBUG - Can be too verbose
         except ValueError as e:
-            print(f"Log {log_idx + 1}/{len(all_log_entries)}: Could not parse log timestamp. Original: '{log_timestamp_str}', Cleaned: '{cleaned_timestamp_str}', Repr: {repr(log_timestamp_str)}. Error: {e}. Skipping.") # DEBUG
+            # print(f"Log {log_idx + 1}/{len(all_log_entries)}: Could not parse log timestamp. Original: '{log_timestamp_str}', Cleaned: '{cleaned_timestamp_str}', Repr: {repr(log_timestamp_str)}. Error: {e}. Skipping.") # DEBUG
             continue
 
         include_log = True
@@ -158,7 +158,20 @@ def get_all_log_entries(start_date: Optional[str] = None, end_date: Optional[str
         # else:
             # print(f"Log {log_idx + 1}: Excluded by date filter.") # DEBUG
 
-    print(f"Total logs read: {len(all_log_entries)}, Filtered logs: {len(filtered_logs)}") # DEBUG
+    # Further filter by status if provided
+    if status:
+        status_filtered_logs = []
+        for log in filtered_logs:
+            log_status = log.get("status", "")
+            if isinstance(log_status, str) and log_status.lower() == status.lower():
+                status_filtered_logs.append(log)
+        filtered_logs = status_filtered_logs
+        # print(f"Logs after status filter ('{status}'): {len(filtered_logs)}") # DEBUG
+    # else:
+        # print(f"No status filter applied or status is empty.") # DEBUG
+
+
+    # print(f"Total logs read: {len(all_log_entries)}, Final filtered logs: {len(filtered_logs)}") # DEBUG
     # Sort by timestamp, newest first
     filtered_logs.sort(key=lambda x: x.get("timestamp", ""), reverse=True)
     return filtered_logs
@@ -185,22 +198,49 @@ def delete_log_entry(log_id: str) -> bool:
             return False
     return False
 
-def clear_all_logs() -> Dict[str, Any]:
-    """Deletes all log files from the storage directory."""
+def clear_all_logs(start_date: Optional[str] = None, end_date: Optional[str] = None, status: Optional[str] = None) -> Dict[str, Any]:
+    """
+    Deletes log files from the storage directory.
+    If filters (start_date, end_date, status) are provided, only matching logs are deleted.
+    Otherwise, all logs are deleted.
+    """
     logs_dir = get_log_storage_path()
     deleted_count = 0
     errors = []
-    if logs_dir.exists():
+
+    if not logs_dir.exists():
+        return {"message": "Log directory does not exist. No logs to clear.", "deleted_count": 0}
+
+    logs_to_delete = []
+
+    if start_date or end_date or status:
+        # Get filtered logs
+        filtered_entries = get_all_log_entries(start_date, end_date, status)
+        for entry in filtered_entries:
+            log_id = entry.get("id")
+            if log_id:
+                logs_to_delete.append(_get_log_file_path(log_id))
+    else:
+        # Get all logs if no filters are applied
         for log_file in logs_dir.glob("*.json"):
+            logs_to_delete.append(log_file)
+
+    for log_file_path in logs_to_delete:
+        if log_file_path.exists():
             try:
-                log_file.unlink()
+                log_file_path.unlink()
                 deleted_count += 1
             except Exception as e:
-                errors.append(f"Failed to delete {log_file.name}: {str(e)}")
-    
+                errors.append(f"Failed to delete {log_file_path.name}: {str(e)}")
+        else:
+            # This might happen if a log was already deleted or ID was malformed,
+            # but generally get_all_log_entries should return existing ones.
+            errors.append(f"Log file not found for deletion: {log_file_path.name}")
+
+
     if errors:
-        return {"message": f"Cleared {deleted_count} log(s) with some errors.", "errors": errors}
-    return {"message": f"Successfully cleared {deleted_count} log(s)."}
+        return {"message": f"Cleared {deleted_count} log(s) with some errors.", "errors": errors, "deleted_count": deleted_count}
+    return {"message": f"Successfully cleared {deleted_count} log(s).", "deleted_count": deleted_count}
 
 if __name__ == '__main__':
     # Example Usage (for testing)

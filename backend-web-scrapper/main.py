@@ -59,10 +59,11 @@ async def get_log_path():
 @app.get("/logs", summary="Get All Log Entries", response_model=List[LogEntryResponse])
 async def get_all_logs(
     start_date: Optional[str] = None,
-    end_date: Optional[str] = None
+    end_date: Optional[str] = None,
+    status: Optional[str] = None  # Added status filter
 ):
-    # Pass start_date and end_date directly to the log_manager
-    logs = await asyncio.to_thread(log_manager.get_all_log_entries, start_date, end_date)
+    # Pass start_date, end_date, and status directly to the log_manager
+    logs = await asyncio.to_thread(log_manager.get_all_log_entries, start_date, end_date, status)
     return logs
 
 @app.get("/logs/{log_id}", summary="Get Specific Log Entry", response_model=Optional[LogEntryResponse])
@@ -74,17 +75,30 @@ async def get_log(log_id: str):
         raise HTTPException(status_code=500, detail=log_entry["error"])
     return log_entry
 
+@app.delete("/logs/clear", summary="Clear All Log Entries")
+async def clear_logs(
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    status: Optional[str] = None
+):
+    result = await asyncio.to_thread(log_manager.clear_all_logs, start_date, end_date, status)
+    # The result from clear_all_logs now includes "deleted_count", which is good for the client.
+    # If "errors" are present in the result and it's significant, consider raising HTTPException.
+    # For now, returning the full result dictionary.
+    if "errors" in result and result["errors"]:
+        # Potentially log this on the server side as well or handle more gracefully
+        # For now, we'll still return 200 but with error details.
+        # If a more severe error (e.g., directory not accessible) occurred,
+        # log_manager might need to raise an exception that gets caught here.
+        pass
+    return result
+
 @app.delete("/logs/{log_id}", summary="Delete Specific Log Entry")
 async def delete_log(log_id: str):
     success = await asyncio.to_thread(log_manager.delete_log_entry, log_id)
     if not success:
         raise HTTPException(status_code=404, detail="Log entry not found or could not be deleted")
     return {"message": "Log entry deleted successfully"}
-
-@app.delete("/logs/clear", summary="Clear All Log Entries")
-async def clear_logs():
-    result = await asyncio.to_thread(log_manager.clear_all_logs)
-    return result
 
 
 # --- Modified Scraper Endpoints with Logging ---

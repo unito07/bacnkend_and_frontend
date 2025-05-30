@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Trash2, RotateCw, FolderCog, Eye, XCircle, Download, ChevronLeft, ChevronRight } from 'lucide-react'; // Added Download, ChevronLeft, ChevronRight icons
 import DateRangePicker from '@/components/custom/DateRangePicker'; // Import the new component
+import StatusPicker from '@/components/custom/StatusPicker'; // Import the new StatusPicker
 import { format } from 'date-fns'; // Import format
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
@@ -23,6 +24,7 @@ function HistoryLogsPage() {
   const [isFetchingDetail, setIsFetchingDetail] = useState(false); // For modal loading
   const [filterStartDate, setFilterStartDate] = useState(null);
   const [filterEndDate, setFilterEndDate] = useState(null);
+  const [filterStatus, setFilterStatus] = useState(''); // For status filter
   const [currentTablePage, setCurrentTablePage] = useState(1); // State for client-side table pagination
 
   const fetchLogs = useCallback(async () => {
@@ -36,6 +38,9 @@ function HistoryLogsPage() {
       }
       if (filterEndDate) {
         params.append('end_date', format(filterEndDate, 'yyyy-MM-dd'));
+      }
+      if (filterStatus) {
+        params.append('status', filterStatus);
       }
       if (params.toString()) {
         url += `?${params.toString()}`;
@@ -54,7 +59,7 @@ function HistoryLogsPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [filterStartDate, filterEndDate]);
+  }, [filterStartDate, filterEndDate, filterStatus]);
 
   const fetchLogPath = useCallback(async () => {
     try {
@@ -118,16 +123,47 @@ function HistoryLogsPage() {
   };
 
   const handleClearAllLogs = async () => {
-    if (!window.confirm("Are you sure you want to delete ALL log entries? This action cannot be undone.")) return;
+    const filtersActive = filterStartDate || filterEndDate || filterStatus;
+    let confirmMessage = "Are you sure you want to delete ALL log entries? This action cannot be undone.";
+    let url = `${API_BASE_URL}/logs/clear`;
+    const params = new URLSearchParams();
+
+    if (filtersActive) {
+      let filterDetails = [];
+      if (filterStartDate) {
+        params.append('start_date', format(filterStartDate, 'yyyy-MM-dd'));
+        filterDetails.push(`Start Date: ${format(filterStartDate, 'MMM d, yyyy')}`);
+      }
+      if (filterEndDate) {
+        params.append('end_date', format(filterEndDate, 'yyyy-MM-dd'));
+        filterDetails.push(`End Date: ${format(filterEndDate, 'MMM d, yyyy')}`);
+      }
+      if (filterStatus) {
+        params.append('status', filterStatus);
+        filterDetails.push(`Status: ${filterStatus}`);
+      }
+      confirmMessage = `Are you sure you want to delete logs matching the current filters (${filterDetails.join(', ')})? This action cannot be undone.`;
+      if (params.toString()) {
+        url += `?${params.toString()}`;
+      }
+    }
+
+    if (!window.confirm(confirmMessage)) return;
+
+    if (!filtersActive) {
+      // Second confirmation only if no filters are active (deleting all)
+      if (!window.confirm("This will delete ALL logs permanently. Are you absolutely sure?")) return;
+    }
+
     try {
-      const response = await fetch(`${API_BASE_URL}/logs/clear`, { method: 'DELETE' });
+      const response = await fetch(url, { method: 'DELETE' });
       if (!response.ok) {
         const errData = await response.json();
         throw new Error(errData.detail || 'Failed to clear logs');
       }
       const result = await response.json();
-      toast.success(result.message);
-      fetchLogs();
+      toast.success(result.message || `${result.deleted_count || 0} log(s) cleared.`);
+      fetchLogs(); // Refresh the logs list
     } catch (e) {
       toast.error(`Error clearing logs: ${e.message}`);
     }
@@ -248,6 +284,72 @@ function HistoryLogsPage() {
     toast.success("CSV download started.");
   };
 
+  const handleDownloadFiltered = (formatType) => {
+    if (logs.length === 0) {
+      toast.info("No logs to download based on current filters.");
+      return;
+    }
+
+    if (logs.length > 10 && !window.confirm(`This will initiate ${logs.length} separate file downloads. Are you sure you want to proceed?`)) {
+      toast.info("Download cancelled by user.");
+      return;
+    }
+    
+    toast.info(`Initiating ${logs.length} file download(s)...`);
+
+    logs.forEach((log, index) => {
+      // Add a delay for each download to help browsers manage multiple downloads
+      setTimeout(() => {
+        const rawScrapedData = log.scrapedData; // Use raw scrapedData directly
+        const filename = `log_${log.id}_${log.scrapeType.replace(/[\s()]/g, '_')}_${new Date(log.timestamp).toISOString().split('T')[0]}.${formatType}`;
+
+        // Check if rawScrapedData is null or undefined before proceeding
+        if (rawScrapedData === null || typeof rawScrapedData === 'undefined') {
+          toast.warn(`Skipping download for log ${log.id}: Original scraped data is null or undefined.`);
+          return;
+        }
+        
+        // For CSV, we still might need columns if it's an array of objects.
+        // We can derive columns from requestPayload or the data itself if it's an array.
+        let csvColumns = [];
+        if (log.scrapeType === 'Dynamic' || log.scrapeType === 'Dynamic (Paginated)') {
+            if (log.requestPayload && Array.isArray(log.requestPayload.custom_fields) && log.requestPayload.custom_fields.length > 0) {
+                csvColumns = log.requestPayload.custom_fields.map(field => field.name);
+            } else if (Array.isArray(rawScrapedData) && rawScrapedData.length > 0 && typeof rawScrapedData[0] === 'object' && rawScrapedData[0] !== null) {
+                csvColumns = Object.keys(rawScrapedData[0]);
+            }
+        }
+
+
+        if (formatType === "json") {
+          downloadJsonData(rawScrapedData, filename);
+        } else if (formatType === "csv") {
+          if (log.scrapeType === 'Static' && typeof rawScrapedData === 'string') {
+            // If it's a non-empty string, create a single-cell CSV
+            if (rawScrapedData.trim() !== '') {
+              const staticCsvData = [{ scrapedData: rawScrapedData }];
+              downloadCsvData(staticCsvData, ["scrapedData"], filename);
+            } else {
+              toast.warn(`Skipping CSV download for log ${log.id} (Static): Scraped data string is empty.`);
+            }
+          } else if (Array.isArray(rawScrapedData)) {
+            // If it's an array (empty or not), attempt CSV download
+            if (rawScrapedData.length > 0) {
+              downloadCsvData(rawScrapedData, csvColumns, filename);
+            } else {
+               // If array is empty, still create a CSV with headers if possible, or an empty file.
+               // downloadCsvData handles empty data array by showing a toast, which is fine.
+               downloadCsvData(rawScrapedData, csvColumns, filename); // Will show "No data available for CSV"
+            }
+          } else {
+            // If data is not a string (for static) or an array (for dynamic), it's not suitable for CSV.
+            toast.warn(`Skipping CSV download for log ${log.id}: Data is not in a recognized format for CSV (Type: ${log.scrapeType}).`);
+          }
+        }
+      }, index * 500); // 500ms delay between each download initiation
+    });
+  };
+
   return (
     <div className="container mx-auto p-4 md:p-8">
       <h1 className="text-3xl font-bold mb-6">History Logs</h1>
@@ -264,8 +366,11 @@ function HistoryLogsPage() {
         <h2 className="text-2xl font-semibold">Scrape History</h2>
         <div className="flex flex-wrap gap-2">
           <DateRangePicker onApply={handleDateRangeApply} initialStartDate={filterStartDate} initialEndDate={filterEndDate} />
+          <StatusPicker currentStatus={filterStatus} onStatusChange={setFilterStatus} />
           <Button onClick={fetchLogs} variant="outline" size="sm" disabled={isLoading}><RotateCw className={`mr-2 h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} /> Refresh</Button>
-          <Button onClick={handleClearAllLogs} variant="destructive" size="sm" disabled={isLoading || logs.length === 0}><XCircle className="mr-2 h-4 w-4" /> Clear All Logs</Button>
+          <Button onClick={handleClearAllLogs} variant="destructive" size="sm" disabled={isLoading || logs.length === 0}><XCircle className="mr-2 h-4 w-4" /> Clear Logs</Button>
+          <Button onClick={() => handleDownloadFiltered("json")} variant="outline" size="sm" disabled={isLoading || logs.length === 0}><Download className="mr-2 h-4 w-4" /> Download JSON</Button>
+          <Button onClick={() => handleDownloadFiltered("csv")} variant="outline" size="sm" disabled={isLoading || logs.length === 0}><Download className="mr-2 h-4 w-4" /> Download CSV</Button>
         </div>
       </div>
       {error && <p className="text-red-500 mb-4">Error: {error}</p>}
