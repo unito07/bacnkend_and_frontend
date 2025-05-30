@@ -1,8 +1,20 @@
-import React from 'react';
+import React, { useRef, forwardRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Zap, Cpu, Code, PlayCircle, Terminal, ArrowRight, ShieldCheck, BarChart, Users } from 'lucide-react'; // Example icons
 import { HyperText } from '@/components/magicui/hyper-text'; // Import HyperText as named import
 import { EvervaultCard } from "@/components/ui/evervault-card"; // Import EvervaultCard
+import { AnimatedBeam } from "@/components/magicui/animated-beam"; // Import AnimatedBeam
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"; // Import Tabs components
+import { cn } from "@/lib/utils"; // For classname utility
+import terminalIcon from '@/assets/image.png'; // Your main logo
+import glovoIcon from '@/assets/glovo.png';
+import kilimallIcon from '@/assets/kilimall.png';
+import naivasIcon from '@/assets/naivas.png';
+import minisoIcon from '@/assets/miniso.png';
+import tushopIcon from '@/assets/tushop.png';
+import adeegIcon from '@/assets/adeeg.png';
+// Assuming you might want a sixth one for symmetry, or you can adjust the layout
+// import anotherIcon from '@/assets/another.png'; 
 
 // Placeholder for 8-bit style icons or pixel art (reverted to Lucide version)
 const PixelIcon = ({ icon: IconComponent, className }) => (
@@ -11,8 +23,38 @@ const PixelIcon = ({ icon: IconComponent, className }) => (
 
 // AnimatedTerminalText component is removed as HyperText will be used for the main title.
 
+const Circle = forwardRef(({ className, children }, ref) => {
+  return (
+    <div
+      ref={ref}
+      className={cn(
+        "z-10 flex h-16 w-16 items-center justify-center rounded-full border-2 border-neon-purple bg-deep-space-black p-3 shadow-[0_0_20px_-12px_rgba(162,89,255,0.8)]",
+        className,
+      )}
+    >
+      {children}
+    </div>
+  );
+});
+Circle.displayName = "Circle";
+
 function LandingPage() {
   const navigate = useNavigate();
+  const containerRef = useRef(null);
+  
+  // Central icon ref
+  const centralNodeRef = useRef(null); // Was node2Ref
+
+  // Left side icons refs
+  const leftNode1Ref = useRef(null); // Was node1Ref (Zap)
+  const leftNode2Ref = useRef(null);
+  const leftNode3Ref = useRef(null);
+
+  // Right side icons refs
+  const rightNode1Ref = useRef(null); // Was node3Ref (Code)
+  const rightNode2Ref = useRef(null);
+  const rightNode3Ref = useRef(null);
+
 
   const handleGetStartedClick = () => {
     navigate('/app');
@@ -54,53 +96,132 @@ function LandingPage() {
         <p className="mt-4 text-xs text-cyber-lime opacity-70 animate-pulse">system.online</p>
       </section>
 
-      {/* Features Section */}
-      <section id="features" className="w-full py-16 md:py-24 bg-dark-indigo border-t border-b border-soft-violet">
-        <div className="container mx-auto px-6 text-center">
-          <h2 className="text-4xl font-bold text-electric-blue mb-4">FEATURES_LOADED</h2>
-          <p className="text-lg text-slate-gray mb-12 max-w-xl mx-auto">
-            Unlock unparalleled capabilities with our suite of developer-centric tools.
-          </p>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {[
-              { icon: Zap, title: "Blazing Fast APIs", description: "Experience near-zero latency with our optimized infrastructure." },
-              { icon: Cpu, title: "Intelligent Processing", description: "Leverage AI-powered algorithms for smarter data handling." },
-              { icon: Code, title: "Seamless Integration", description: "Easy-to-use SDKs and plugins for all major frameworks." },
-            ].map((feature, index) => (
-              <div key={index} className="bg-deep-space-black p-6 border border-soft-violet hover:border-neon-purple transition-all duration-300 transform hover:scale-105">
-                {/* Pixel art icon placeholder */}
-                <div className="flex justify-center mb-4">
-                  <PixelIcon icon={feature.icon} className="text-cyber-lime" />
-                </div>
-                <h3 className="text-2xl font-semibold text-neon-purple mb-3">{feature.title}</h3>
-                <p className="text-slate-gray">{feature.description}</p>
+      {/* Animated Beam Section */}
+      <section id="tech-flow" className="w-full py-16 md:py-24 bg-deep-space-black">
+        <div className="container mx-auto px-6 flex flex-col items-start"> {/* Changed items-center to items-start */}
+          <h2 className="text-4xl font-bold text-electric-blue mb-12 text-left">Example scrapped,</h2> {/* Changed text-center to text-left */}
+          {/* New parent flex container */}
+          <div className="flex flex-col md:flex-row gap-8 items-start w-full">
+            {/* Existing Animated Beam Card */}
+            <div
+              className="relative flex w-full md:w-1/2 items-center justify-center overflow-hidden rounded-lg border border-soft-violet bg-dark-indigo p-10 md:shadow-xl min-h-[400px]" // Increased min-h for vertical space
+              ref={containerRef}
+            >
+              {/* Main container for icon groups and central icon */}
+            <div className="flex h-full w-full flex-row items-center justify-around">
+              {/* Left Group of Icons */}
+              <div className="flex flex-col items-center justify-around gap-y-8"> {/* Increased gap-y */}
+                <Circle ref={leftNode1Ref} className="border-green-500">
+                  <img src={glovoIcon} alt="Glovo" className="h-10 w-10 rounded-lg object-contain" />
+                </Circle>
+                <Circle ref={leftNode2Ref} className="border-yellow-500">
+                  <img src={kilimallIcon} alt="Kilimall" className="h-10 w-10 rounded-lg object-contain" />
+                </Circle>
+                <Circle ref={leftNode3Ref} className="border-red-500"> {/* Naivas - standard size */}
+                  <img src={naivasIcon} alt="Naivas" className="h-10 w-10 rounded-lg object-contain" />
+                </Circle>
               </div>
-            ))}
-          </div>
-        </div>
-      </section>
 
-      {/* How It Works Section */}
-      <section id="how-it-works" className="w-full py-16 md:py-24">
-        <div className="container mx-auto px-6 text-center">
-          <h2 className="text-4xl font-bold text-electric-blue mb-12">INITIATE_SEQUENCE</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 relative">
-            {/* Connecting lines placeholder - could be SVG or ::before/::after elements */}
-            {[
-              { icon: PlayCircle, step: "01", title: "Connect & Configure", description: "Link your project and set up your parameters in minutes." },
-              { icon: Terminal, step: "02", title: "Execute & Monitor", description: "Run tasks and watch real-time progress via our terminal UI." },
-              { icon: ArrowRight, step: "03", title: "Analyze & Deploy", description: "Get actionable insights and deploy with confidence." },
-            ].map((item, index) => (
-              <div key={index} className="bg-dark-indigo p-6 border border-soft-violet relative z-10">
-                <div className="flex items-center justify-center mb-4">
-                  <span className="text-5xl font-black text-neon-purple opacity-50 mr-4">{item.step}</span>
-                  <PixelIcon icon={item.icon} className="text-cyber-lime" />
-                </div>
-                <h3 className="text-2xl font-semibold text-neon-purple mb-3">{item.title}</h3>
-                <p className="text-slate-gray">{item.description}</p>
+              {/* Central Icon */}
+              <div className="flex flex-col items-center justify-center">
+                <Circle ref={centralNodeRef} className="border-electric-blue !h-24 !w-24">
+                  <img src={terminalIcon} alt="Terminal Icon" className="h-16 w-16 rounded-lg" />
+                </Circle>
               </div>
-            ))}
+
+              {/* Right Group of Icons */}
+              <div className="flex flex-col items-center justify-around gap-y-8">
+                <Circle ref={rightNode1Ref} className="border-blue-500"> {/* Miniso - standard size */}
+                  <img src={minisoIcon} alt="Miniso" className="h-10 w-10 rounded-lg object-contain" />
+                </Circle>
+                <Circle ref={rightNode2Ref} className="border-purple-500"> {/* Tushop - standard size */}
+                  <img src={tushopIcon} alt="Tushop" className="h-10 w-10 rounded-lg object-contain" />
+                </Circle>
+                <Circle ref={rightNode3Ref} className="border-pink-500"> 
+                  <img src={adeegIcon} alt="Adeeg" className="h-10 w-10 rounded-lg object-contain" />
+                </Circle>
+              </div>
+            </div>
+
+            {/* Beams from Left to Center */}
+            <AnimatedBeam containerRef={containerRef} fromRef={leftNode1Ref} toRef={centralNodeRef} curvature={45} endXOffset={-10} pathColor="gray" />
+            <AnimatedBeam containerRef={containerRef} fromRef={leftNode2Ref} toRef={centralNodeRef} curvature={0} pathColor="gray" />
+            <AnimatedBeam containerRef={containerRef} fromRef={leftNode3Ref} toRef={centralNodeRef} curvature={-45} endXOffset={-10} pathColor="gray" />
+
+                    {/* Beams from Right to Center (animation reversed) */}
+            <AnimatedBeam containerRef={containerRef} fromRef={rightNode1Ref} toRef={centralNodeRef} curvature={45} endXOffset={10} pathColor="gray" reverse />
+            <AnimatedBeam containerRef={containerRef} fromRef={rightNode2Ref} toRef={centralNodeRef} curvature={0} pathColor="gray" reverse />
+            <AnimatedBeam containerRef={containerRef} fromRef={rightNode3Ref} toRef={centralNodeRef} curvature={-45} endXOffset={10} pathColor="gray" reverse />
+            </div>
+
+            {/* New Card for Scraped Data */}
+            <div className="w-full md:w-1/2 p-6 md:p-10 border border-neon-purple bg-dark-indigo rounded-lg md:shadow-xl min-h-[400px] flex flex-col">
+              <h3 className="text-2xl font-bold text-electric-blue mb-4 text-center">Scraped Data Preview</h3>
+              <Tabs defaultValue="json" className="w-full flex-grow flex flex-col">
+                <TabsList className="grid w-full grid-cols-2 bg-deep-space-black/50 border-soft-violet">
+                  <TabsTrigger value="json" className="data-[state=active]:bg-neon-purple data-[state=active]:text-deep-space-black">JSON</TabsTrigger>
+                  <TabsTrigger value="table" className="data-[state=active]:bg-neon-purple data-[state=active]:text-deep-space-black">Table</TabsTrigger>
+                </TabsList>
+                <TabsContent value="json" className="flex-grow mt-4">
+                  <div className="text-left w-full h-full bg-deep-space-black p-4 rounded-md overflow-auto max-h-80 md:max-h-full">
+                    <pre className="text-sm text-slate-gray whitespace-pre-wrap">
+                      {`[
+  {
+    "product_name": "Retro Keyboard",
+    "price": "75.99",
+    "store": "TechGizmo"
+  },
+  {
+    "product_name": "Pixel Art Lamp",
+    "price": "49.50",
+    "store": "LightUpYourLife"
+  },
+  {
+    "product_name": "8-Bit Coffee Mug",
+    "price": "15.00",
+    "store": "RetroHome"
+  }
+]`}
+                    </pre>
+                  </div>
+                </TabsContent>
+                <TabsContent value="table" className="flex-grow mt-4">
+                  <div className="text-left w-full h-full bg-deep-space-black p-4 rounded-md overflow-auto max-h-80 md:max-h-full">
+                    <table className="min-w-full bg-dark-indigo text-slate-300 rounded-md shadow-lg">
+                      <thead className="bg-slate-700/50">
+                        <tr>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-electric-blue uppercase tracking-wider">Product Name</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-electric-blue uppercase tracking-wider">Price</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-electric-blue uppercase tracking-wider">Store</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-700">
+                        <tr>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm">Retro Keyboard</td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm">75.99</td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm">TechGizmo</td>
+                        </tr>
+                        <tr>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm">Pixel Art Lamp</td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm">49.50</td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm">LightUpYourLife</td>
+                        </tr>
+                        <tr>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm">8-Bit Coffee Mug</td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm">15.00</td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm">RetroHome</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </TabsContent>
+              </Tabs>
+              <p className="text-xs text-cyber-lime opacity-70 mt-4 animate-pulse text-center">data.stream_active</p>
+            </div>
           </div>
+          <p className="text-md text-slate-gray mt-8 max-w-lg text-left">
+            Connecting your favorite stores to our powerful scraping engine, and visualizing the results.
+          </p>
         </div>
       </section>
 
@@ -108,7 +229,7 @@ function LandingPage() {
       <section id="cta" className="w-full py-16 md:py-24 bg-dark-indigo border-t border-soft-violet">
         <div className="container mx-auto px-6 text-center">
           <h2 className="text-4xl md:text-5xl font-bold text-neon-purple mb-6">
-            JOIN_THE_REVOLUTION
+            Ready to Start?
           </h2>
           <p className="text-xl text-slate-gray mb-10 max-w-xl mx-auto">
             Ready to transform your development process? Start building the future, today.
