@@ -234,37 +234,41 @@ class DynamicWebScraper:
             try:
                 logger.info(f"Attempting to load URL: {url} with timeout {self.timeout}s")
                 self.driver.get(url)
-                if not scraper_should_run: 
+                if not scraper_should_run:
                     logger.info("Scraping cancelled immediately after driver.get() completed/interrupted.")
-                    return False
+                    return False, "Scraping cancelled after URL load attempt."
             except TimeoutException:
-                logger.warning(f"Page load timeout for {url}.")
+                error_msg = f"Page load timeout for {url} after {self.timeout}s."
+                logger.warning(error_msg)
                 if not scraper_should_run:
                     logger.info("Page load timeout coincided with cancellation signal.")
-                return False # Treat all timeouts as failure for this method
-            except Exception as e: # Catch other potential driver.get() errors
-                logger.error(f"Error during driver.get({url}): {str(e)}")
+                return False, error_msg
+            except Exception as e: # Catch other potential driver.get() errors, like invalid argument
+                error_msg = f"Error during driver.get({url}): {str(e)}"
+                logger.error(error_msg)
                 if not scraper_should_run:
                      logger.info("Error during driver.get() coincided with cancellation.")
-                return False
+                return False, error_msg
 
             logger.info("Page loaded. Waiting for dynamic content to potentially load...")
             post_load_wait_duration = random.uniform(5, 8)
             logger.info(f"Waiting for {post_load_wait_duration:.1f}s for page to settle...")
             if not cancellable_sleep(post_load_wait_duration):
                 logger.info("Post-load wait cancelled.")
-                return False
+                return False, "Post-load wait cancelled."
 
             if enable_scrolling:
                 logger.info("Scrolling enabled, starting scroll process...")
-                if not self._scroll_page(max_scrolls=max_scrolls, scroll_to_end_page=scroll_to_end_page): # Pass scroll_to_end_page
+                # _scroll_page returns True on success, False on failure/cancellation
+                if not self._scroll_page(max_scrolls=max_scrolls, scroll_to_end_page=scroll_to_end_page):
                     logger.info("Scrolling was cancelled or failed.")
-                    return False
+                    return False, "Scrolling process failed or was cancelled."
             
-            return True
+            return True, None # Success
         except Exception as e: # General exception handler for _make_dynamic_request
-            logger.error(f"Unexpected error in _make_dynamic_request for {url}: {str(e)}")
-            return False
+            error_msg = f"Unexpected error in _make_dynamic_request for {url}: {str(e)}"
+            logger.error(error_msg)
+            return False, error_msg
 
     def _extract_dynamic_field_data(self, container, field):
         """Extract data from dynamic page using Selenium selectors"""
@@ -401,10 +405,11 @@ class DynamicWebScraper:
             df = df[~(df.astype(str).apply(lambda x: x.str.strip() == '').all(axis=1))]
             # Reset index after filtering
             df = df.reset_index(drop=True)
-            return df
+            return df, None # Success
         except Exception as e:
-            logger.error(f"Error processing dynamic page data: {str(e)}")
-            return pd.DataFrame()
+            error_msg = f"Error processing dynamic page data: {str(e)}"
+            logger.error(error_msg)
+            return pd.DataFrame(), error_msg
 
     def scrape_dynamic_page(self, url, container_selector, custom_fields, enable_scrolling=False, max_scrolls=5, scroll_to_end_page: bool = False):
         """Scrape data from a dynamic page"""
@@ -413,174 +418,185 @@ class DynamicWebScraper:
             logger.info(f"Starting dynamic scrape for URL: {url}")
             if not scraper_should_run: # Early exit if cancelled before even starting
                 logger.info(f"Scrape for {url} cancelled before _make_dynamic_request.")
-                return pd.DataFrame()
+                return pd.DataFrame(), "Scraping cancelled before making request."
 
-            if self._make_dynamic_request(url, enable_scrolling, max_scrolls, scroll_to_end_page): # Pass scroll_to_end_page
+            request_success, request_error_msg = self._make_dynamic_request(url, enable_scrolling, max_scrolls, scroll_to_end_page)
+            
+            if request_success:
                 if not scraper_should_run: # Check after _make_dynamic_request if it was cancelled during
                     logger.info(f"Scrape for {url} cancelled after _make_dynamic_request succeeded but before processing.")
-                    return pd.DataFrame()
-                return self._process_dynamic_page_data(container_selector, custom_fields)
+                    return pd.DataFrame(), "Scraping cancelled after successful request, before processing."
+                # Proceed to process data, _process_dynamic_page_data now returns (df, error_msg)
+                df, processing_error_msg = self._process_dynamic_page_data(container_selector, custom_fields)
+                return df, processing_error_msg # processing_error_msg will be None on success
             else: # _make_dynamic_request returned False (failure or cancellation)
-                logger.info(f"_make_dynamic_request failed or was cancelled for {url}.")
-                return pd.DataFrame()
+                logger.info(f"_make_dynamic_request failed or was cancelled for {url}. Error: {request_error_msg}")
+                return pd.DataFrame(), request_error_msg
         except Exception as e:
-            logger.error(f"Error in dynamic page scraping for {url}: {str(e)}")
-            return pd.DataFrame()
+            error_msg = f"Error in dynamic page scraping for {url}: {str(e)}"
+            logger.error(error_msg)
+            return pd.DataFrame(), error_msg
 
     def scrape_dynamic_with_pagination(self, url, container_selector, custom_fields,
                                      start_page, end_page, pagination_type, page_param=None,
                                      enable_scrolling=False, max_scrolls=5, scroll_to_end_page: bool = False,
-                                     next_button_selector=None): # Removed session_id
-        """Scrape data from dynamic pages with pagination"""
+                                     next_button_selector=None):
+        """Scrape data from dynamic pages with pagination. Returns (DataFrame, error_message_or_None)"""
         all_data = []
         current_url = url
+        accumulated_errors = [] # To store non-fatal errors from page processing
 
         try:
-            # Initialize WebDriver once for the entire pagination process
             logger.info("Setting up WebDriver for pagination...")
             if not self.driver:
-                self.setup_driver()
+                try:
+                    if not self.setup_driver(): # setup_driver raises on critical failure or returns True
+                        # This path should ideally not be hit if setup_driver raises as expected
+                        err_msg = "WebDriver setup failed in pagination (returned False)."
+                        logger.error(err_msg)
+                        return pd.DataFrame(), err_msg
+                except Exception as e:
+                    err_msg = f"WebDriver setup failed in pagination: {str(e)}"
+                    logger.error(err_msg)
+                    return pd.DataFrame(), err_msg
 
-            # Make initial request
             logger.info(f"Making initial request to {url}")
-            self.driver.get(url)
-            current_url = self.driver.current_url # Update current_url after initial load
-            logger.info(f"Initial page loaded. Current URL: {current_url}")
+            try:
+                self.driver.get(url)
+                current_url = self.driver.current_url
+                logger.info(f"Initial page loaded. Current URL: {current_url}")
+            except Exception as e:
+                err_msg = f"Initial page load failed for {url} during pagination: {str(e)}"
+                logger.error(err_msg)
+                return pd.DataFrame(), err_msg
+            
             logger.info("Initial page load for pagination, waiting...")
             if not cancellable_sleep(random.uniform(2, 4)):
                 logger.info("Initial page load wait cancelled during pagination.")
-                return pd.DataFrame() # Return empty if cancelled
+                return pd.DataFrame(), "Initial page load wait cancelled."
 
             for page in range(start_page, end_page + 1):
                 if not scraper_should_run:
                     logger.info("Stop signal received before processing page. Exiting pagination loop.")
-                    break
-                logger.info(f"Processing page {page}")
+                    break 
+                logger.info(f"Processing page {page} of {current_url}")
 
                 if enable_scrolling:
-                    self._scroll_page(max_scrolls=max_scrolls, scroll_to_end_page=scroll_to_end_page) # Pass scroll_to_end_page
+                    if not self._scroll_page(max_scrolls=max_scrolls, scroll_to_end_page=scroll_to_end_page):
+                        # Scroll failure might be due to cancellation or other issues.
+                        # If cancelled, scraper_should_run will be false and loop will break.
+                        # If other error, log it and potentially break or continue.
+                        logger.warning(f"Scrolling failed or was cancelled on page {page}.")
+                        if not scraper_should_run: break # Exit if cancelled
+                        # Decide if non-cancellation scroll failure is fatal for this page
+                        accumulated_errors.append(f"Page {page}: Scrolling failed.")
 
-                # Extract data from current page
-                page_df = self._process_dynamic_page_data(container_selector, custom_fields)
 
-                if not page_df.empty:
+                page_df, page_error = self._process_dynamic_page_data(container_selector, custom_fields)
+                if page_error:
+                    logger.warning(f"Error processing page {page} of {current_url}: {page_error}.")
+                    accumulated_errors.append(f"Page {page}: {page_error}")
+                
+                if page_df is not None and not page_df.empty:
                     all_data.append(page_df)
                     logger.info(f"Successfully scraped {len(page_df)} records from page {page}")
-                else:
-                    logger.warning(f"No data found on page {page}")
-                    break
-
-                # Don't try to go to next page if we're on the last page
-                if page < end_page:
-                    if not scraper_should_run:
-                        logger.info("Stop signal received before navigating to next page. Exiting pagination loop.")
-                        break
-                    if pagination_type == "URL Parameter":
-                        base_url_for_modification = current_url 
-                        parsed_url_obj = urlparse(base_url_for_modification)
-                        original_path = parsed_url_obj.path
-                        
-                        next_page_num_val = page + 1
-                        next_url_val = ""
-
-                        # Regex to find (literal page_param)(digits)
-                        # User provides page_param like "page-" or "p"
-                        path_regex_pattern = re.compile(f"({re.escape(page_param)})(\\d+)")
-                        
-                        # Use a lambda for safer substitution with backreferences
-                        modified_path = path_regex_pattern.sub(lambda m: f"{m.group(1)}{next_page_num_val}", original_path)
-
-                        if modified_path != original_path: # Path replacement was successful
-                            next_url_parts = list(parsed_url_obj)
-                            next_url_parts[2] = modified_path # path is at index 2
-                            next_url_val = urlunparse(next_url_parts)
-                            logger.info(f"Navigating to next page (Path Update): {next_url_val}")
-                        else: # Path replacement failed or not applicable, fall back to query parameter
-                            query_dict = parse_qs(parsed_url_obj.query)
-                            query_dict[page_param] = [str(next_page_num_val)] # Use the variable page_param
-                            new_query_str = urlencode(query_dict, doseq=True)
-                            
-                            next_url_parts = list(parsed_url_obj)
-                            next_url_parts[4] = new_query_str # query is at index 4
-                            next_url_val = urlunparse(next_url_parts)
-                            logger.info(f"Navigating to next page (Query Update): {next_url_val}")
-                        
-                        self.driver.get(next_url_val)
-                        current_url = self.driver.current_url # Update current_url after navigation
-                        
-                        logger.info(f"Paginated page {next_page_num_val} navigation complete. Current URL: {current_url}")
-                        logger.info(f"Waiting after navigating to page {next_page_num_val}...")
-                        if not cancellable_sleep(random.uniform(2, 4)):
-                            logger.info("Paginated page load wait cancelled.")
-                            break # Exit pagination loop
-
-                    elif pagination_type == "Next Button":
-                        try:
-                            final_selector = next_button_selector
-                            # Default selector if none provided by user for "Next Button"
-                            if not final_selector:
-                                final_selector = "li.next a, a.next, button.next, button[aria-label*='next' i], a[aria-label*='next' i], li.pagination-next a"
-                                logger.info(f"No 'Next Button' selector provided, using default CSS selectors: {final_selector}")
-                                find_by = By.CSS_SELECTOR
-                            # Determine if the selector is XPath or CSS
-                            elif final_selector.startswith("//") or final_selector.startswith("(//"):
-                                find_by = By.XPATH
-                                logger.info(f"Looking for next button using XPath: {final_selector}")
-                            else:
-                                find_by = By.CSS_SELECTOR
-                                logger.info(f"Looking for next button using CSS Selector: {final_selector}")
-                            
-                            next_button = WebDriverWait(self.driver, 20).until(
-                                EC.element_to_be_clickable((find_by, final_selector))
-                            )
-
-                            if not next_button.is_displayed():
-                                logger.info("Next button found but not visible, scrolling into view")
-                                self.driver.execute_script("arguments[0].scrollIntoView(true);", next_button)
-                                time.sleep(1)  # Wait for scroll to complete
-
-                            logger.info("Clicking next button...")
-                            next_button.click()
-                            logger.info("Clicked next button, waiting for new page to load...")
-
-                            # Wait for the container on the new page to be present
-                            WebDriverWait(self.driver, 20).until(
-                                EC.presence_of_element_located((By.CSS_SELECTOR, container_selector)) # Or some other reliable indicator of page load
-                            )
-                            current_url = self.driver.current_url # Update current_url after click and page load
-                            logger.info(f"Navigated via Next Button. Current URL: {current_url}")
-                            
-                            logger.info("Post-click wait for animations...")
-                            if not cancellable_sleep(2): # Consider making this wait duration configurable or dynamic
-                                logger.info("Post-click wait cancelled.")
-                                break # Exit pagination loop
-
-                        except Exception as e:
-                            logger.error(f"Error navigating to next page: {str(e)}")
-                            break
+                elif not page_error: # No data and no error means page was empty or selectors found nothing
+                    logger.warning(f"No data extracted on page {page} of {current_url} (selectors might not have matched or page was empty).")
                 
-                logger.info(f"Inter-page delay for page {page}...")
-                if not cancellable_sleep(random.uniform(self.delay, self.delay + 2)):
-                    logger.info("Inter-page delay cancelled.")
-                    break # Exit pagination loop
+                if not scraper_should_run: break # Check again after processing
 
-        except Exception as e:
-            logger.error(f"Error in pagination scraping: {str(e)}")
+                if page < end_page: # Navigate to next page
+                    nav_success = False
+                    try:
+                        if pagination_type == "URL Parameter":
+                            # ... (URL parameter navigation logic as before) ...
+                            base_url_for_modification = current_url 
+                            parsed_url_obj = urlparse(base_url_for_modification)
+                            original_path = parsed_url_obj.path
+                            next_page_num_val = page + 1
+                            next_url_val = ""
+                            path_regex_pattern = re.compile(f"({re.escape(page_param)})(\\d+)")
+                            modified_path = path_regex_pattern.sub(lambda m: f"{m.group(1)}{next_page_num_val}", original_path)
+
+                            if modified_path != original_path:
+                                next_url_parts = list(parsed_url_obj); next_url_parts[2] = modified_path
+                                next_url_val = urlunparse(next_url_parts)
+                            else:
+                                query_dict = parse_qs(parsed_url_obj.query)
+                                query_dict[page_param] = [str(next_page_num_val)]
+                                new_query_str = urlencode(query_dict, doseq=True)
+                                next_url_parts = list(parsed_url_obj); next_url_parts[4] = new_query_str
+                                next_url_val = urlunparse(next_url_parts)
+                            
+                            logger.info(f"Navigating to next page (URL Param): {next_url_val}")
+                            self.driver.get(next_url_val)
+                            current_url = self.driver.current_url
+                            nav_success = True
+                        
+                        elif pagination_type == "Next Button":
+                            # ... (Next button logic as before) ...
+                            final_selector = next_button_selector or "li.next a, a.next, button.next, button[aria-label*='next' i], a[aria-label*='next' i], li.pagination-next a"
+                            find_by = By.XPATH if final_selector.startswith(("//", "(//")) else By.CSS_SELECTOR
+                            logger.info(f"Looking for next button using {find_by}: {final_selector}")
+                            next_button = WebDriverWait(self.driver, 20).until(EC.element_to_be_clickable((find_by, final_selector)))
+                            if not next_button.is_displayed(): self.driver.execute_script("arguments[0].scrollIntoView(true);", next_button); time.sleep(1)
+                            next_button.click()
+                            WebDriverWait(self.driver, 20).until(EC.presence_of_element_located((By.CSS_SELECTOR, container_selector)))
+                            current_url = self.driver.current_url
+                            nav_success = True
+
+                        if nav_success:
+                            logger.info(f"Navigated to page {page + 1}. New URL: {current_url}. Waiting...")
+                            if not cancellable_sleep(random.uniform(2, 4)):
+                                logger.info("Paginated page load wait cancelled.")
+                                break 
+                        else: # Should not happen if logic is correct, but as a fallback
+                            logger.error("Navigation logic did not set nav_success.")
+                            accumulated_errors.append(f"Page {page + 1}: Navigation logic error.")
+                            break
+
+
+                    except Exception as e:
+                        err_msg = f"Error navigating to page {page + 1} from {current_url}: {str(e)}"
+                        logger.error(err_msg)
+                        accumulated_errors.append(err_msg)
+                        break # Fatal error for pagination
+
+                    if not scraper_should_run: break
+                    logger.info(f"Inter-page delay after page {page}...")
+                    if not cancellable_sleep(random.uniform(self.delay, self.delay + 2)):
+                        logger.info("Inter-page delay cancelled.")
+                        break
+            # End of for loop
+
+            final_df = pd.DataFrame()
+            if all_data:
+                final_df = pd.concat(all_data, ignore_index=True)
+                final_df = final_df.dropna(how='all').reset_index(drop=True)
+                logger.info(f"Total records scraped from pagination: {len(final_df)}")
+            
+            final_error_message = "; ".join(accumulated_errors) if accumulated_errors else None
+            if not scraper_should_run and not final_error_message: # Cancelled, no other specific error
+                final_error_message = "Pagination process was cancelled."
+            
+            if final_df.empty and not all_data and not final_error_message: # No data, no errors, not cancelled
+                 final_error_message = "No data collected during pagination (pages might be empty or selectors didn't match)."
+
+            return final_df, final_error_message
+
+        except Exception as e: # Catch-all for the entire method
+            err_msg = f"Major error in pagination scraping for {url}: {str(e)}"
+            logger.error(err_msg)
+            # Return any data collected so far along with the major error
+            partial_df = pd.DataFrame()
+            if all_data:
+                partial_df = pd.concat(all_data, ignore_index=True).dropna(how='all').reset_index(drop=True)
+            return partial_df, err_msg
         finally:
             if self.driver:
-                logger.info("Closing WebDriver...")
+                logger.info("Closing WebDriver in scrape_dynamic_with_pagination.")
                 self.driver.quit()
                 self.driver = None
-
-        # Combine all data with continuous indexing
-        if all_data:
-            final_df = pd.concat(all_data, ignore_index=True)  # ignore_index ensures continuous indexing
-            final_df = final_df.dropna(how='all')  # Remove any remaining empty rows
-            final_df = final_df.reset_index(drop=True)  # Final reset of index to be continuous
-            logger.info(f"Total records scraped: {len(final_df)}")
-            return final_df
-        else:
-            return pd.DataFrame()
 
 # New top-level wrapper function for pagination
 def scrape_dynamic_with_pagination(
@@ -604,20 +620,19 @@ def scrape_dynamic_with_pagination(
     set_scraper_status(True)
     logger.info(f"Starting dynamic scrape with pagination for URL: {url}, Pages: {start_page}-{end_page}")
     
-    # Instantiate DynamicWebScraper, similar to scrape_dynamic_data
-    # Using timeout=30 for consistency with scrape_dynamic_data. Other params use class defaults.
+    # Instantiate DynamicWebScraper
     scraper = DynamicWebScraper(timeout=30) 
     
-    df_results = pd.DataFrame() # Initialize to empty DataFrame
+    df_results = pd.DataFrame() # Initialize
+    error_message = None # Initialize
 
     try:
         if not scraper_should_run: # Early exit if cancelled before starting
             logger.info(f"Scraping (pagination) for {url} cancelled before starting.")
-            return df_results
+            return pd.DataFrame(), "Scraping cancelled before starting."
 
-        # The DynamicWebScraper.scrape_dynamic_with_pagination method handles its own driver lifecycle
-        # (setup and teardown).
-        df_results = scraper.scrape_dynamic_with_pagination( # Call the class method
+        # scrape_dynamic_with_pagination class method now returns (DataFrame, error_msg_or_None)
+        df_results, error_message = scraper.scrape_dynamic_with_pagination(
             url=url,
             container_selector=container_selector,
             custom_fields=custom_fields,
@@ -627,25 +642,30 @@ def scrape_dynamic_with_pagination(
             page_param=page_param,
             enable_scrolling=enable_scrolling,
             max_scrolls=max_scrolls,
-            scroll_to_end_page=scroll_to_end_page, # Pass scroll_to_end_page
+            scroll_to_end_page=scroll_to_end_page,
             next_button_selector=next_button_selector
-            # session_id is not passed from main.py, so it will use its default (None) in the class method
         )
         
-        # Check status after the potentially long-running scraping operation
-        if not get_scraper_status():
-             logger.info(f"Scraping (pagination) for {url} was cancelled during operation.")
-             # df_results might contain partial data if cancelled mid-way.
-        else:
-            logger.info(f"Dynamic scrape with pagination complete for {url}. Found {len(df_results)} records.")
+        if error_message:
+            # Log the error message received from the scraping process
+            logger.warning(f"Pagination scraping for {url} completed with message: '{error_message}'. Records found: {len(df_results) if df_results is not None else 0}.")
+        elif not get_scraper_status() and not error_message: # Cancelled, but no specific error from scraper method
+            error_message = "Scraping (pagination) was cancelled during operation."
+            logger.info(error_message)
+        else: # Success and not cancelled
+            logger.info(f"Dynamic scrape with pagination complete for {url}. Found {len(df_results) if df_results is not None else 0} records.")
             
-        return df_results
+        # df_results can be an empty DataFrame if no data was found or an error occurred early.
+        # error_message will contain details if something went wrong or if cancelled.
+        return df_results if df_results is not None else pd.DataFrame(), error_message
 
     except Exception as e:
-        logger.error(f"Unhandled exception in top-level scrape_dynamic_with_pagination for {url}: {str(e)}")
-        # Ensure an empty DataFrame is returned on error, as expected by main.py
-        return pd.DataFrame() 
-    # No 'finally' block for driver cleanup here, as the class method handles it.
+        # Catch-all for unexpected errors in this wrapper function's logic
+        unhandled_error_msg = f"Unhandled exception in top-level scrape_dynamic_with_pagination for {url}: {str(e)}"
+        logger.error(unhandled_error_msg)
+        # Return empty DataFrame and the error
+        return pd.DataFrame(), unhandled_error_msg
+    # The class method's finally block handles driver cleanup.
 
 
 def scrape_dynamic_data(
@@ -664,52 +684,63 @@ def scrape_dynamic_data(
     set_scraper_status(True) # Reset flag for new scrape
     logging.info(f"Starting dynamic scrape for URL: {url}")
     scraper = DynamicWebScraper(timeout=30)  # Increased timeout to 30 seconds
-    df = pd.DataFrame() # Initialize df
+    # df = pd.DataFrame() # Not needed here, scrape_dynamic_page returns df
+    
+    driver_setup_error = None
     try:
         if not scraper_should_run:
             logger.info("Scraping cancelled before starting.")
-            return []
+            return [], "Scraping cancelled before starting."
         
         # Attempt to setup driver
         try:
             if not scraper.setup_driver(): # setup_driver now returns True on success, or raises exception
-                 logger.error("Failed to setup driver (setup_driver returned False or None).")
-                 return []
+                 driver_setup_error = "Failed to setup driver (setup_driver returned False or None)."
+                 logger.error(driver_setup_error)
+                 # No return here, finally block will handle driver
         except Exception as e:
-            logger.error(f"Exception during scraper.setup_driver(): {e}")
-            # Ensure driver is cleaned up if partially initialized and then failed
-            if scraper.driver:
-                scraper.driver.quit()
-                scraper.driver = None
-            return []
+            driver_setup_error = f"Exception during scraper.setup_driver(): {e}"
+            logger.error(driver_setup_error)
+            # No return here, finally block will handle driver
+
+        if driver_setup_error:
+            return [], driver_setup_error
 
         # Check cancellation status *after* driver setup attempt
         if not scraper_should_run:
             logger.info("Scraping cancelled after driver setup.")
-            if scraper.driver: # Ensure driver is quit if setup succeeded then cancelled
-                scraper.driver.quit()
-                scraper.driver = None
-            return []
+            return [], "Scraping cancelled after driver setup."
         
         # Ensure driver is available
         if not scraper.driver:
-             logger.error("Driver not available after setup attempt for dynamic scrape.")
-             return []
+             # This case should ideally be caught by setup_driver errors
+             no_driver_error = "Driver not available after setup attempt for dynamic scrape."
+             logger.error(no_driver_error)
+             return [], no_driver_error
 
-        df = scraper.scrape_dynamic_page(
+        # scrape_dynamic_page now returns (df, error_msg)
+        df, error_msg = scraper.scrape_dynamic_page(
             url,
             container_selector,
             custom_fields,
             enable_scrolling=enable_scrolling,
             max_scrolls=max_scrolls,
-            scroll_to_end_page=scroll_to_end_page # Pass scroll_to_end_page
+            scroll_to_end_page=scroll_to_end_page
         )
+
+        if error_msg:
+            # An error occurred in _make_dynamic_request or _process_dynamic_page_data
+            logger.error(f"Dynamic scrape for {url} failed. Error: {error_msg}")
+            return [], error_msg # df might be empty or partial, return empty list for data
+
         # Convert DataFrame to list of dicts for JSON serialization
         logging.info(f"Dynamic scrape complete. Found {len(df)} records.")
-        return df.to_dict(orient="records")
-    except Exception as e:
-        logger.error(f"Unhandled exception in scrape_dynamic_data: {e}")
-        return [] # Return empty list on error
+        return df.to_dict(orient="records"), None # Success
+    
+    except Exception as e: # Catch-all for unexpected errors in this function's logic
+        unhandled_error_msg = f"Unhandled exception in scrape_dynamic_data: {str(e)}"
+        logger.error(unhandled_error_msg)
+        return [], unhandled_error_msg
     finally:
         if scraper.driver:
             logger.info("Ensuring WebDriver is closed in scrape_dynamic_data.")

@@ -195,6 +195,7 @@ async def scrape_dynamic(
         scroll_to_end_page = payload.get("scroll_to_end_page", False) # Added
 
         enable_pagination = payload.get("enable_pagination", False)
+        error_message_from_scraper = None # Initialize
 
         if enable_pagination:
             start_page = payload.get("start_page", 1)
@@ -203,70 +204,101 @@ async def scrape_dynamic(
             page_param = payload.get("page_param", "page")
             next_button_selector = payload.get("next_button_selector", None)
             
-            # Log pagination specific details
-            log_payload["scrapeType"] = "Dynamic (Paginated)" # More specific type
+            log_payload["scrapeType"] = "Dynamic (Paginated)"
             log_payload["paginationDetails"] = {
-                "start_page": start_page,
-                "end_page": end_page,
-                "pagination_type": pagination_type,
-                "page_param": page_param,
-                "next_button_selector": next_button_selector,
-                "scroll_to_end_page": scroll_to_end_page # Added for logging
+                "start_page": start_page, "end_page": end_page,
+                "pagination_type": pagination_type, "page_param": page_param,
+                "next_button_selector": next_button_selector, "scroll_to_end_page": scroll_to_end_page
             }
 
-            data_from_scraper_df = await asyncio.to_thread(
+            # scrape_dynamic_with_pagination now returns (DataFrame, error_msg_or_None)
+            data_from_scraper_df, error_message_from_scraper = await asyncio.to_thread(
                 scrape_dynamic_with_pagination,
-                url=url,
-                container_selector=container_selector,
-                custom_fields=custom_fields,
-                start_page=start_page,
-                end_page=end_page,
-                pagination_type=pagination_type,
-                page_param=page_param,
-                next_button_selector=next_button_selector,
-                enable_scrolling=enable_scrolling,
-                max_scrolls=max_scrolls,
-                scroll_to_end_page=scroll_to_end_page # Added
+                url=url, container_selector=container_selector, custom_fields=custom_fields,
+                start_page=start_page, end_page=end_page, pagination_type=pagination_type,
+                page_param=page_param, next_button_selector=next_button_selector,
+                enable_scrolling=enable_scrolling, max_scrolls=max_scrolls, scroll_to_end_page=scroll_to_end_page
             )
-            # scrape_dynamic_with_pagination returns a DataFrame
-            actual_scraped_results = data_from_scraper_df.to_dict(orient="records")
+            actual_scraped_results = data_from_scraper_df.to_dict(orient="records") if data_from_scraper_df is not None else []
         else:
-            data_from_scraper = await asyncio.to_thread(
+            # scrape_dynamic_data now returns (list_of_dicts, error_msg_or_None)
+            actual_scraped_results, error_message_from_scraper = await asyncio.to_thread(
                 scrape_dynamic_data,
-                url,
-                container_selector,
-                custom_fields,
-                enable_scrolling=enable_scrolling,
-                max_scrolls=max_scrolls,
-                scroll_to_end_page=scroll_to_end_page # Added
+                url, container_selector, custom_fields,
+                enable_scrolling=enable_scrolling, max_scrolls=max_scrolls, scroll_to_end_page=scroll_to_end_page
             )
-            actual_scraped_results = data_from_scraper # This is already a list of dicts
         
-        # Check if scraping was cancelled
-        if not get_scraper_status(): # If status is False, it means it was cancelled
-            log_payload["status"] = "Cancelled"
-            # Potentially return a specific response for cancelled tasks
-            # For now, we'll let it proceed to finally, but not raise an error
-            # and the data might be partial or empty.
-            print("Dynamic scraping was cancelled.")
-            # actual_scraped_results might be partial here
-            operation_status = "cancelled"
-        else:
-            log_payload["status"] = "Success"
-            # log_payload["dataPreview"] = f"{len(actual_scraped_results)} items scraped" if isinstance(actual_scraped_results, list) else "Data scraped"
-            operation_status = "completed"
+        operation_status = "completed" # Default
+        
+        if error_message_from_scraper:
+            log_payload["status"] = "Failed"
+            log_payload["errorMessage"] = error_message_from_scraper
+            print(f"Dynamic scraping for {url} failed with error: {error_message_from_scraper}")
+            # Determine appropriate HTTP status code
+            status_code = 500 # Default server error
+            if "invalid argument" in error_message_from_scraper.lower() or "timeout" in error_message_from_scraper.lower():
+                status_code = 400 # Bad request (e.g. invalid URL, page timeout)
+            elif "cancelled" in error_message_from_scraper.lower():
+                 # This case should ideally be handled by get_scraper_status() check below,
+                 # but if scraper itself returns "cancelled", treat as such.
+                log_payload["status"] = "Cancelled"
+                operation_status = "cancelled"
+                # For cancelled, we might not want to raise HTTPException, but return a specific status.
+                # However, if the scraper function itself flags an error like "Scraping cancelled...",
+                # it's better to inform the client with an error code.
+                # Let's use 499 Client Closed Request as a proxy for cancellation initiated by client/scraper logic.
+                status_code = 499 # Or a custom code / specific message
+            
+            # actual_scraped_results might be partial or empty if an error occurred.
+            # The log_payload will capture this.
+            if log_payload["status"] == "Failed": # Only raise if truly failed, not just cancelled by scraper logic
+                user_friendly_detail = "An error occurred during scraping. Please check the URL or parameters."
+                if "Stacktrace:" in error_message_from_scraper or "invalid argument" in error_message_from_scraper.lower():
+                    # Keep specific but brief messages for common, actionable errors if they don't contain stack traces
+                    if "invalid argument" in error_message_from_scraper.lower() and "Stacktrace:" not in error_message_from_scraper:
+                        user_friendly_detail = "Invalid URL or parameters provided."
+                    elif "timeout" in error_message_from_scraper.lower() and "Stacktrace:" not in error_message_from_scraper:
+                         user_friendly_detail = "The page took too long to load (timeout)."
+                    # Otherwise, use the generic message for stack traces or other complex errors
+                else:
+                    # For other errors that are not stack traces, we can be a bit more specific if the message is already somewhat clean.
+                    # However, to be safe and meet the user's request for simplicity, let's default to generic for unhandled cases.
+                    # If error_message_from_scraper is short and non-technical, it could be used.
+                    # For now, sticking to the generic message for anything that's not a simple invalid arg/timeout without stacktrace.
+                    pass # user_friendly_detail is already set to generic
 
-        return {"results": actual_scraped_results, "operation_status": operation_status}
-    except Exception as e:
-        print(f"Error during dynamic scraping: {e}")
+                raise HTTPException(status_code=status_code, detail=user_friendly_detail)
+
+        # Check if scraping was cancelled by the /stop-scraper endpoint
+        if not get_scraper_status() and log_payload["status"] != "Failed": # Avoid overriding a specific failure
+            log_payload["status"] = "Cancelled"
+            operation_status = "cancelled"
+            print(f"Dynamic scraping for {url} was cancelled by explicit stop signal.")
+            # If cancelled, we might return a 200 OK with "cancelled" status, or a specific HTTP code.
+            # For now, let's return 200 with operation_status="cancelled".
+            # The actual_scraped_results could be partial.
+        
+        if log_payload["status"] == "Pending": # If no error and not cancelled, it's a success
+             log_payload["status"] = "Success"
+        
+        # log_payload["dataPreview"] is handled by the log_manager now based on scrapedData
+
+        return {"results": actual_scraped_results, "operation_status": operation_status, "message": error_message_from_scraper if error_message_from_scraper else "Operation successful"}
+
+    except HTTPException as http_exc: # Re-raise HTTPExceptions
+        # Log payload status and error message should already be set if this is from our logic
+        if not log_payload["errorMessage"]: # If it's an unexpected HTTPException
+            log_payload["status"] = "Failed"
+            log_payload["errorMessage"] = http_exc.detail
+        raise
+    except Exception as e: # Catch other unexpected errors in this endpoint's logic
+        print(f"Unexpected error during dynamic scraping endpoint: {e}")
         log_payload["status"] = "Failed"
         log_payload["errorMessage"] = str(e)
-        # actual_scraped_results remains None
-        raise HTTPException(status_code=500, detail=str(e))
+        actual_scraped_results = [] # Ensure it's an empty list on unexpected error
+        raise HTTPException(status_code=500, detail=f"Unexpected server error: {str(e)}")
     finally:
-        # Ensure scraper status is reset if it was still true (e.g. successful completion)
-        # If it was cancelled, it's already false.
-        log_payload["scrapedData"] = actual_scraped_results # Store the actual list of results
+        log_payload["scrapedData"] = actual_scraped_results # Store the actual list of results or partial results
         await asyncio.to_thread(log_manager.create_log_entry, log_payload)
 
 
