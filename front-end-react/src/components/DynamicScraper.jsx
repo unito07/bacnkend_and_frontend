@@ -88,15 +88,12 @@ export default function DynamicScraper() {
   const [tempEndPage, setTempEndPage] = useState(formData.dynamicEndPage);
   const [editingMaxScrolls, setEditingMaxScrolls] = useState(false);
   const [tempMaxScrolls, setTempMaxScrolls] = useState(formData.dynamicMaxScrolls);
-  const [currentPreScrapeSelector, setCurrentPreScrapeSelector] = useState(""); // Added for pre-scrape
 
   // State for Interactive Mode
-  const [isInteractiveMode, setIsInteractiveMode] = useState(false);
+  // const [isInteractiveMode, setIsInteractiveMode] = useState(false); // Removed local state
   const [interactiveSessionId, setInteractiveSessionId] = useState(null);
   const [interactiveModeLoading, setInteractiveModeLoading] = useState(false); // For start/stop buttons
-  const [interactiveStartUrl, setInteractiveStartUrl] = useState("");
-  const [chromeUserDataDir, setChromeUserDataDir] = useState(""); // Added for Chrome User Data Directory
-  const [chromeProfileDir, setChromeProfileDir] = useState(""); // Added for Chrome Profile Directory
+  // const [interactiveStartUrl, setInteractiveStartUrl] = useState(""); // Removed local state
 
 
   // Ensure fields have unique IDs
@@ -203,7 +200,7 @@ export default function DynamicScraper() {
         pagination_type: formData.dynamicPaginationType,
         page_param: formData.dynamicPageParam,
         next_button_selector: formData.dynamicNextButtonSelector,
-        pre_scrape_interactions: formData.preScrapeInteractions || [],
+        // pre_scrape_interactions: formData.preScrapeInteractions || [], // Removed
       };
       const res = await fetch(`${API_URL}/scrape-dynamic`, {
         method: "POST",
@@ -275,9 +272,9 @@ export default function DynamicScraper() {
     startScrapeOperation('interactive-start', operationKey); // Use this key
     try {
       const payload = { 
-        start_url: interactiveStartUrl || null,
-        user_data_dir: chromeUserDataDir || null,
-        profile_directory: chromeProfileDir || null,
+        start_url: formData.interactiveStartUrl || null, // Use context state
+        // user_data_dir: chromeUserDataDir || null, // Removed
+        // profile_directory: chromeProfileDir || null, // Removed
       };
       const res = await fetch(`${API_URL}/interactive/start-browser`, {
         method: "POST",
@@ -359,30 +356,10 @@ export default function DynamicScraper() {
     }
   };
 
-
-  const handleAddPreScrapeSelector = () => {
-    if (currentPreScrapeSelector.trim() === "") {
-      toast.info("Pre-scrape selector cannot be empty.");
-      return;
-    }
-    setFormData(prev => ({
-      ...prev,
-      preScrapeInteractions: [...(prev.preScrapeInteractions || []), currentPreScrapeSelector.trim()],
-    }));
-    setCurrentPreScrapeSelector(""); // Clear input after adding
-  };
-
-  const handleRemovePreScrapeSelector = (indexToRemove) => {
-    setFormData(prev => ({
-      ...prev,
-      preScrapeInteractions: (prev.preScrapeInteractions || []).filter((_, index) => index !== indexToRemove),
-    }));
-  };
-
   const fieldOrder = formData.dynamicFields.filter(f => f.name && f.selector).map(f => f.name.trim());
 
   // Debugging for "Scrape Current Interactive Page" button's disabled state
-  if (isInteractiveMode) {
+  if (formData.isInteractiveMode) { // Use context state
     const containerSelectorFilled = formData.dynamicContainerSelector && formData.dynamicContainerSelector.trim() !== "";
     const fieldsAreFilled = formData.dynamicFields.filter(f => f.name && f.name.trim() !== "" && f.selector && f.selector.trim() !== "").length > 0;
     const buttonDisabledState = isLoadingScrape || !interactiveSessionId || !containerSelectorFilled || !fieldsAreFilled;
@@ -413,8 +390,8 @@ export default function DynamicScraper() {
           </Label>
           <NeonCheckbox
             id="interactive-mode-toggle"
-            checked={isInteractiveMode}
-            onChange={(e) => setIsInteractiveMode(e.target.checked)}
+            checked={formData.isInteractiveMode} // Use context state
+            onChange={(e) => setFormData(prev => ({ ...prev, isInteractiveMode: e.target.checked }))} // Update context state using onChange and e.target.checked
             className="h-6 w-6"
           />
            <span className="text-sm text-[var(--muted-foreground)]">
@@ -422,7 +399,7 @@ export default function DynamicScraper() {
           </span>
         </div>
 
-        {isInteractiveMode ? (
+        {formData.isInteractiveMode ? ( // Use context state
           // --- Interactive Mode UI ---
           <div className="space-y-6 p-4 border border-[var(--accent)] rounded-lg shadow-lg shadow-[var(--accent)]/30">
             <h3 className="text-2xl font-semibold text-center text-[var(--accent)]">Interactive Session Control</h3>
@@ -434,39 +411,12 @@ export default function DynamicScraper() {
                 <Input
                   id="interactive-start-url"
                   type="text"
-                  value={interactiveStartUrl}
-                  onChange={e => setInteractiveStartUrl(e.target.value)}
+                  value={formData.interactiveStartUrl} // Use context state
+                  onChange={e => setFormData(prev => ({ ...prev, interactiveStartUrl: e.target.value }))} // Update context state
                   placeholder="https://example.com (optional)"
                   className="mt-1 text-base p-2 bg-[var(--muted)] text-[var(--foreground)] border-[var(--input)] focus:ring-[var(--ring)] focus:border-[var(--ring)] rounded-md"
                   disabled={interactiveModeLoading || !!interactiveSessionId}
                 />
-            </div>
-            <div>
-                <Label htmlFor="chrome-user-data-dir" className="text-md text-[var(--muted-foreground)]">Chrome User Data Directory (Optional)</Label>
-                <Input
-                  id="chrome-user-data-dir"
-                  type="text"
-                  value={chromeUserDataDir}
-                  onChange={e => setChromeUserDataDir(e.target.value)}
-                  placeholder="e.g., /Users/youruser/Library/Application Support/Google/Chrome"
-                  className="mt-1 text-base p-2 bg-[var(--muted)] text-[var(--foreground)] border-[var(--input)] focus:ring-[var(--ring)] focus:border-[var(--ring)] rounded-md"
-                  disabled={interactiveModeLoading || !!interactiveSessionId}
-                />
-            </div>
-            <div>
-                <Label htmlFor="chrome-profile-dir" className="text-md text-[var(--muted-foreground)]">Chrome Profile Directory (Optional)</Label>
-                <Input
-                  id="chrome-profile-dir"
-                  type="text"
-                  value={chromeProfileDir}
-                  onChange={e => setChromeProfileDir(e.target.value)}
-                  placeholder="e.g., Profile 1, Default"
-                  className="mt-1 text-base p-2 bg-[var(--muted)] text-[var(--foreground)] border-[var(--input)] focus:ring-[var(--ring)] focus:border-[var(--ring)] rounded-md"
-                  disabled={interactiveModeLoading || !!interactiveSessionId || !chromeUserDataDir.trim()} // Disable if no user data dir
-                />
-                 {chromeUserDataDir.trim() && !chromeProfileDir.trim() && (
-                  <p className="text-xs text-[var(--muted-foreground)] mt-1">If User Data Directory is set but Profile Directory is empty, 'Default' profile will be assumed.</p>
-                )}
             </div>
             {!interactiveSessionId ? (
               <Button
@@ -503,7 +453,7 @@ export default function DynamicScraper() {
                 value={formData.dynamicContainerSelector}
                 onChange={e => setFormData(prev => ({ ...prev, dynamicContainerSelector: e.target.value }))}
                 placeholder=".item-container"
-                required={isInteractiveMode} // Required only if in interactive mode
+                required={formData.isInteractiveMode} // Required only if in interactive mode
                 className="mt-1 text-base p-2 bg-[var(--muted)] text-[var(--foreground)] border-[var(--input)] focus:ring-[var(--ring)] focus:border-[var(--ring)] rounded-md"
               />
             </div>
@@ -562,7 +512,7 @@ export default function DynamicScraper() {
                 value={formData.dynamicUrl}
                 onChange={e => setFormData(prev => ({ ...prev, dynamicUrl: e.target.value }))}
                 placeholder="https://example.com"
-                required={!isInteractiveMode} // Required only if NOT in interactive mode
+                required={!formData.isInteractiveMode} // Use context state
                 className="mt-2 text-lg p-3 bg-[var(--muted)] text-[var(--foreground)] border-[var(--input)] focus:ring-[var(--ring)] focus:border-[var(--ring)] rounded-md"
               />
             </div>
@@ -574,59 +524,14 @@ export default function DynamicScraper() {
                 value={formData.dynamicContainerSelector}
                 onChange={e => setFormData(prev => ({ ...prev, dynamicContainerSelector: e.target.value }))}
                 placeholder=".item-container"
-                required={!isInteractiveMode} // Required only if NOT in interactive mode
+                required={!formData.isInteractiveMode} // Use context state
                 className="mt-2 text-lg p-3 bg-[var(--muted)] text-[var(--foreground)] border-[var(--input)] focus:ring-[var(--ring)] focus:border-[var(--ring)] rounded-md"
               />
             </div>
 
-            {/* Pre-Scrape Interactions Section - Only for non-interactive mode */}
-            {!isInteractiveMode && (
-              <div className="p-6 rounded-lg border border-[var(--border)]/70 bg-[var(--background)] space-y-4 shadow-[0_0_10px_var(--accent-secondary)]">
-                <Label className="text-xl font-semibold text-[var(--accent-secondary)] mb-3 block">Pre-Scrape Interactions (Click Actions)</Label>
-                <div className="flex items-center space-x-2">
-                  <Input
-                    type="text"
-                    value={currentPreScrapeSelector}
-                    onChange={e => setCurrentPreScrapeSelector(e.target.value)}
-                    placeholder="Enter CSS selector to click (e.g., #accept-cookies)"
-                    className="flex-grow text-base p-2 bg-[var(--muted)] text-[var(--foreground)] border-[var(--input)] focus:ring-[var(--ring)] focus:border-[var(--ring)] rounded-md"
-                  />
-                  <Button
-                    type="button"
-                    onClick={handleAddPreScrapeSelector}
-                    variant="outline"
-                    className="text-base py-2 px-4 border-[var(--accent-secondary)] text-[var(--accent-secondary)] hover:bg-[var(--accent-secondary)]/20 hover:text-[var(--accent)] rounded-md"
-                  >
-                    <Plus className="h-5 w-5 mr-2" /> Add Click
-                  </Button>
-                </div>
-                {formData.preScrapeInteractions && formData.preScrapeInteractions.length > 0 && (
-                  <div className="space-y-2 mt-3">
-                    <p className="text-sm text-[var(--muted-foreground)]">Selectors will be clicked in this order:</p>
-                    <ul className="list-decimal list-inside pl-2 space-y-1">
-                      {formData.preScrapeInteractions.map((selector, index) => (
-                        <li key={index} className="flex items-center justify-between text-sm text-[var(--foreground)] bg-[var(--muted)]/50 p-2 rounded-md">
-                          <span className="truncate" title={selector}>{index + 1}. {selector}</span>
-                          <Button
-                            type="button"
-                            onClick={() => handleRemovePreScrapeSelector(index)}
-                            variant="ghost"
-                            size="icon"
-                            className="text-[var(--destructive)] hover:bg-[var(--destructive)]/10 h-7 w-7"
-                            aria-label="Remove pre-scrape selector"
-                          >
-                            <Minus className="h-4 w-4" />
-                          </Button>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-              </div>
-            )}
             
             {/* Scrolling Options - Only for non-interactive mode */}
-            {!isInteractiveMode && (
+            {!formData.isInteractiveMode && ( // Use context state
               <div className={cn(
                 "rounded-lg border border-[var(--border)]/70 bg-[var(--background)] transition-all duration-300 ease-in-out",
                 formData.dynamicEnableScrolling ? "shadow-[0_0_15px_var(--ring)]" : ""
@@ -819,7 +724,7 @@ export default function DynamicScraper() {
             )}
 
             {/* Pagination Controls - Only for non-interactive mode */}
-            {!isInteractiveMode && (
+            {!formData.isInteractiveMode && ( // Use context state
               <div className={cn(
                 "rounded-lg border border-[var(--border)]/70 bg-[var(--background)] transition-all duration-300 ease-in-out",
                 formData.dynamicEnablePagination ? "shadow-[0_0_15px_var(--ring)]" : ""
@@ -1044,7 +949,7 @@ export default function DynamicScraper() {
             )}
 
             {/* Fields to Extract - Only for non-interactive mode (or reuse if structure is identical) */}
-            {!isInteractiveMode && (
+            {!formData.isInteractiveMode && ( // Use context state
               <div className="p-6 rounded-lg border border-[var(--border)]/70 bg-[var(--background)] space-y-4 shadow-[0_0_10px_var(--secondary)]">
                 <Label className="text-xl font-semibold text-[var(--secondary)] mb-3 block">Fields to Extract</Label>
                 <DndContext
@@ -1083,7 +988,7 @@ export default function DynamicScraper() {
             )}
 
             {/* Submit and Cancel Buttons for Normal Dynamic Scrape */}
-            {!isInteractiveMode && (
+            {!formData.isInteractiveMode && ( // Use context state
               <div className="space-y-3 pt-4">
                 <Button
                   type="submit"

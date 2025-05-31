@@ -229,41 +229,8 @@ class DynamicWebScraper:
             logger.error(f"Error while scrolling: {str(e)}")
             return False
 
-    def _perform_pre_scrape_interactions(self, interactions: List[str]):
-        """Performs click actions based on a list of CSS selectors before main scraping."""
-        if not interactions:
-            return True # No interactions to perform
-
-        logger.info(f"Starting pre-scrape interactions. Interactions to perform: {len(interactions)}")
-        for i, selector in enumerate(interactions):
-            if not scraper_should_run:
-                logger.info("Stop signal received during pre-scrape interactions. Aborting.")
-                return False # Indicate cancellation
-
-            logger.info(f"Attempting pre-scrape interaction {i+1}/{len(interactions)} with selector: '{selector}'")
-            try:
-                element = WebDriverWait(self.driver, 10).until(
-                    EC.element_to_be_clickable((By.CSS_SELECTOR, selector))
-                )
-                element.click()
-                logger.info(f"Successfully clicked element with selector: '{selector}'")
-                if not cancellable_sleep(0.75): # Wait 0.75s for page to react, check for cancellation
-                    logger.info("Pre-scrape interaction sleep cancelled.")
-                    return False # Indicate cancellation
-            except TimeoutException:
-                logger.warning(f"Element with selector '{selector}' not found or not clickable within timeout during pre-scrape.")
-                # Continue to the next interaction as per requirements
-            except NoSuchElementException: # Should be caught by WebDriverWait, but as a fallback
-                logger.warning(f"Element with selector '{selector}' not found during pre-scrape (NoSuchElement).")
-            except Exception as e:
-                logger.error(f"Error clicking element with selector '{selector}' during pre-scrape: {str(e)}")
-                # Continue to the next interaction
-        logger.info("Finished all pre-scrape interactions.")
-        return True
-
-
-    def _make_dynamic_request(self, url, pre_scrape_interactions: List[str], enable_scrolling=False, max_scrolls=5, scroll_to_end_page: bool = False):
-        """Load page with Selenium, perform pre-scrape interactions, and wait for dynamic content"""
+    def _make_dynamic_request(self, url, enable_scrolling=False, max_scrolls=5, scroll_to_end_page: bool = False):
+        """Load page with Selenium and wait for dynamic content"""
         global scraper_should_run
         if not scraper_should_run:
             logger.info("Cancellation detected before making dynamic request.")
@@ -299,15 +266,8 @@ class DynamicWebScraper:
                      logger.info("Error during driver.get() coincided with cancellation.")
                 return False, error_msg
             
-            logger.info("Page loaded. Performing pre-scrape interactions if any...")
-            if pre_scrape_interactions:
-                if not self._perform_pre_scrape_interactions(pre_scrape_interactions):
-                    # If _perform_pre_scrape_interactions returns False, it means it was cancelled.
-                    logger.info("Pre-scrape interactions were cancelled.")
-                    return False, "Pre-scrape interactions cancelled."
-            
-            logger.info("Waiting for dynamic content to potentially load after pre-scrape actions...")
-            post_load_wait_duration = random.uniform(5, 8) # This wait might be adjusted based on pre-scrape needs
+            logger.info("Page loaded. Waiting for dynamic content to potentially load...")
+            post_load_wait_duration = random.uniform(5, 8)
             logger.info(f"Waiting for {post_load_wait_duration:.1f}s for page to settle...")
             if not cancellable_sleep(post_load_wait_duration):
                 logger.info("Post-load wait cancelled.")
@@ -498,7 +458,7 @@ class DynamicWebScraper:
             logger.error(error_msg)
             return pd.DataFrame(), error_msg
 
-    def scrape_dynamic_page(self, url, container_selector, custom_fields, pre_scrape_interactions: List[str], enable_scrolling=False, max_scrolls=5, scroll_to_end_page: bool = False):
+    def scrape_dynamic_page(self, url, container_selector, custom_fields, enable_scrolling=False, max_scrolls=5, scroll_to_end_page: bool = False):
         """Scrape data from a dynamic page"""
         global scraper_should_run
         try:
@@ -507,7 +467,7 @@ class DynamicWebScraper:
                 logger.info(f"Scrape for {url} cancelled before _make_dynamic_request.")
                 return pd.DataFrame(), "Scraping cancelled before making request."
 
-            request_success, request_error_msg = self._make_dynamic_request(url, pre_scrape_interactions, enable_scrolling, max_scrolls, scroll_to_end_page)
+            request_success, request_error_msg = self._make_dynamic_request(url, enable_scrolling, max_scrolls, scroll_to_end_page)
             
             if request_success:
                 if not scraper_should_run: # Check after _make_dynamic_request if it was cancelled during
@@ -524,10 +484,10 @@ class DynamicWebScraper:
             logger.error(error_msg)
             return pd.DataFrame(), error_msg
 
-    def scrape_dynamic_with_pagination(self, url, container_selector, custom_fields, pre_scrape_interactions: List[str],
+    def scrape_dynamic_with_pagination(self, url, container_selector, custom_fields,
                                      start_page, end_page, pagination_type, page_param=None,
                                      enable_scrolling=False, max_scrolls=5, scroll_to_end_page: bool = False,
-                                     next_button_selector=None):
+                                     next_button_selector=None, pre_scrape_interactions: Optional[List[str]] = None): # Added pre_scrape_interactions
         """Scrape data from dynamic pages with pagination. Returns (DataFrame, error_message_or_None)"""
         all_data = []
         current_url = url
@@ -556,12 +516,6 @@ class DynamicWebScraper:
                 err_msg = f"Initial page load failed for {url} during pagination: {str(e)}"
                 logger.error(err_msg)
                 return pd.DataFrame(), err_msg
-
-            logger.info("Performing pre-scrape interactions for initial page in pagination...")
-            if pre_scrape_interactions:
-                if not self._perform_pre_scrape_interactions(pre_scrape_interactions):
-                    logger.info("Pre-scrape interactions cancelled during pagination setup.")
-                    return pd.DataFrame(), "Pre-scrape interactions cancelled."
             
             logger.info("Initial page load for pagination, waiting...")
             if not cancellable_sleep(random.uniform(2, 4)):
@@ -704,7 +658,7 @@ def scrape_dynamic_with_pagination(
     max_scrolls: int = 5,
     scroll_to_end_page: bool = False, # Added
     next_button_selector: Optional[str] = None,
-    pre_scrape_interactions: Optional[List[str]] = None
+    pre_scrape_interactions: Optional[List[str]] = None # Added pre_scrape_interactions
 ):
     """
     Scrapes dynamic data from multiple pages using pagination.
@@ -730,7 +684,6 @@ def scrape_dynamic_with_pagination(
             url=url,
             container_selector=container_selector,
             custom_fields=custom_fields,
-            pre_scrape_interactions=pre_scrape_interactions or [],
             start_page=start_page,
             end_page=end_page,
             pagination_type=pagination_type,
@@ -770,7 +723,7 @@ def scrape_dynamic_data(
     enable_scrolling: bool = False,
     max_scrolls: int = 5,
     scroll_to_end_page: bool = False, # Added
-    pre_scrape_interactions: Optional[List[str]] = None
+    pre_scrape_interactions: Optional[List[str]] = None # Added pre_scrape_interactions
 ):
     """
     Scrapes dynamic data from the given URL using the provided container selector and custom fields.
@@ -819,7 +772,6 @@ def scrape_dynamic_data(
             url,
             container_selector,
             custom_fields,
-            pre_scrape_interactions=pre_scrape_interactions or [],
             enable_scrolling=enable_scrolling,
             max_scrolls=max_scrolls,
             scroll_to_end_page=scroll_to_end_page

@@ -14,7 +14,8 @@ const initialScraperFormData = {
   dynamicPaginationType: "Next Button", // Options: "Next Button", "URL Parameter"
   dynamicPageParam: "page", // Default for URL parameter type
   dynamicNextButtonSelector: "", // User will typically provide this
-  preScrapeInteractions: [], // Added for pre-scrape clicks
+  interactiveStartUrl: "", // Added for interactive mode start URL
+  isInteractiveMode: false, // Added for remembering interactive mode toggle
 };
 
 const initialScrapeOperationState = {
