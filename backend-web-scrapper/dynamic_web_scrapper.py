@@ -8,9 +8,9 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import TimeoutException # Added
+from selenium.common.exceptions import TimeoutException, NoSuchElementException # Added NoSuchElementException
 from selenium_stealth import stealth
-from typing import Optional # Added
+from typing import Optional, List # Added List
 from urllib.parse import urlparse, urlunparse, parse_qs, urlencode # Added for URL manipulation
 import pandas as pd
 import logging
@@ -91,12 +91,28 @@ class DynamicWebScraper:
             'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
         ]
 
-    def setup_driver(self):
+    def setup_driver(self, headless_mode: bool = True, user_data_dir: Optional[str] = None, profile_directory: Optional[str] = None):
         """Configure and initialize Chrome WebDriver with stealth settings"""
         try:
-            logger.info("Setting up Chrome WebDriver with stealth configuration...")
+            logger.info(f"Setting up Chrome WebDriver with stealth configuration (Headless: {headless_mode})...")
             chrome_options = Options()
-            chrome_options.add_argument("--headless")
+            if headless_mode:
+                chrome_options.add_argument("--headless")
+            
+            # Handle user data directory and profile directory
+            if user_data_dir and user_data_dir.strip():
+                user_data_dir_cleaned = user_data_dir.strip()
+                chrome_options.add_argument(f"--user-data-dir={user_data_dir_cleaned}")
+                logger.info(f"Using user data directory: {user_data_dir_cleaned}")
+                if profile_directory and profile_directory.strip():
+                    profile_directory_cleaned = profile_directory.strip()
+                    chrome_options.add_argument(f"--profile-directory={profile_directory_cleaned}")
+                    logger.info(f"Using profile directory: {profile_directory_cleaned}")
+                else:
+                    logger.info("No profile directory specified, or it was empty. Will use default profile within the user data directory if applicable.")
+            else:
+                logger.info("No user data directory specified (or it was empty/whitespace). Selenium will use a default temporary profile.")
+
             chrome_options.add_argument("--no-sandbox")
             chrome_options.add_argument("--disable-dev-shm-usage")
             chrome_options.add_argument("--disable-gpu")
@@ -213,8 +229,41 @@ class DynamicWebScraper:
             logger.error(f"Error while scrolling: {str(e)}")
             return False
 
-    def _make_dynamic_request(self, url, enable_scrolling=False, max_scrolls=5, scroll_to_end_page: bool = False):
-        """Load page with Selenium and wait for dynamic content"""
+    def _perform_pre_scrape_interactions(self, interactions: List[str]):
+        """Performs click actions based on a list of CSS selectors before main scraping."""
+        if not interactions:
+            return True # No interactions to perform
+
+        logger.info(f"Starting pre-scrape interactions. Interactions to perform: {len(interactions)}")
+        for i, selector in enumerate(interactions):
+            if not scraper_should_run:
+                logger.info("Stop signal received during pre-scrape interactions. Aborting.")
+                return False # Indicate cancellation
+
+            logger.info(f"Attempting pre-scrape interaction {i+1}/{len(interactions)} with selector: '{selector}'")
+            try:
+                element = WebDriverWait(self.driver, 10).until(
+                    EC.element_to_be_clickable((By.CSS_SELECTOR, selector))
+                )
+                element.click()
+                logger.info(f"Successfully clicked element with selector: '{selector}'")
+                if not cancellable_sleep(0.75): # Wait 0.75s for page to react, check for cancellation
+                    logger.info("Pre-scrape interaction sleep cancelled.")
+                    return False # Indicate cancellation
+            except TimeoutException:
+                logger.warning(f"Element with selector '{selector}' not found or not clickable within timeout during pre-scrape.")
+                # Continue to the next interaction as per requirements
+            except NoSuchElementException: # Should be caught by WebDriverWait, but as a fallback
+                logger.warning(f"Element with selector '{selector}' not found during pre-scrape (NoSuchElement).")
+            except Exception as e:
+                logger.error(f"Error clicking element with selector '{selector}' during pre-scrape: {str(e)}")
+                # Continue to the next interaction
+        logger.info("Finished all pre-scrape interactions.")
+        return True
+
+
+    def _make_dynamic_request(self, url, pre_scrape_interactions: List[str], enable_scrolling=False, max_scrolls=5, scroll_to_end_page: bool = False):
+        """Load page with Selenium, perform pre-scrape interactions, and wait for dynamic content"""
         global scraper_should_run
         if not scraper_should_run:
             logger.info("Cancellation detected before making dynamic request.")
@@ -229,7 +278,7 @@ class DynamicWebScraper:
             
             if not scraper_should_run: # Check again after potential setup_driver call
                 logger.info("Cancellation detected after driver setup attempt in _make_dynamic_request.")
-                return False
+                return False, "Cancellation detected after driver setup."
 
             try:
                 logger.info(f"Attempting to load URL: {url} with timeout {self.timeout}s")
@@ -249,9 +298,16 @@ class DynamicWebScraper:
                 if not scraper_should_run:
                      logger.info("Error during driver.get() coincided with cancellation.")
                 return False, error_msg
-
-            logger.info("Page loaded. Waiting for dynamic content to potentially load...")
-            post_load_wait_duration = random.uniform(5, 8)
+            
+            logger.info("Page loaded. Performing pre-scrape interactions if any...")
+            if pre_scrape_interactions:
+                if not self._perform_pre_scrape_interactions(pre_scrape_interactions):
+                    # If _perform_pre_scrape_interactions returns False, it means it was cancelled.
+                    logger.info("Pre-scrape interactions were cancelled.")
+                    return False, "Pre-scrape interactions cancelled."
+            
+            logger.info("Waiting for dynamic content to potentially load after pre-scrape actions...")
+            post_load_wait_duration = random.uniform(5, 8) # This wait might be adjusted based on pre-scrape needs
             logger.info(f"Waiting for {post_load_wait_duration:.1f}s for page to settle...")
             if not cancellable_sleep(post_load_wait_duration):
                 logger.info("Post-load wait cancelled.")
@@ -411,7 +467,38 @@ class DynamicWebScraper:
             logger.error(error_msg)
             return pd.DataFrame(), error_msg
 
-    def scrape_dynamic_page(self, url, container_selector, custom_fields, enable_scrolling=False, max_scrolls=5, scroll_to_end_page: bool = False):
+    def scrape_current_page_interactive(self, container_selector, custom_fields):
+        """
+        Scrapes data from the currently loaded page in an interactive session.
+        Assumes self.driver is already active and on the target page.
+        Does not call driver.get() or driver.quit().
+        """
+        global scraper_should_run
+        if not scraper_should_run:
+            logger.info("Scraping cancelled before processing current interactive page.")
+            return pd.DataFrame(), "Scraping cancelled before processing."
+        
+        if not self.driver:
+            logger.error("WebDriver not available for interactive scrape.")
+            return pd.DataFrame(), "WebDriver not available."
+
+        logger.info(f"Starting scrape of current interactive page. Container: '{container_selector}'")
+        try:
+            # Directly process the current page data
+            df, processing_error_msg = self._process_dynamic_page_data(container_selector, custom_fields)
+            
+            if processing_error_msg:
+                logger.warning(f"Error processing current interactive page: {processing_error_msg}")
+            else:
+                logger.info(f"Successfully scraped {len(df)} records from current interactive page.")
+            
+            return df, processing_error_msg
+        except Exception as e:
+            error_msg = f"Unexpected error scraping current interactive page: {str(e)}"
+            logger.error(error_msg)
+            return pd.DataFrame(), error_msg
+
+    def scrape_dynamic_page(self, url, container_selector, custom_fields, pre_scrape_interactions: List[str], enable_scrolling=False, max_scrolls=5, scroll_to_end_page: bool = False):
         """Scrape data from a dynamic page"""
         global scraper_should_run
         try:
@@ -420,7 +507,7 @@ class DynamicWebScraper:
                 logger.info(f"Scrape for {url} cancelled before _make_dynamic_request.")
                 return pd.DataFrame(), "Scraping cancelled before making request."
 
-            request_success, request_error_msg = self._make_dynamic_request(url, enable_scrolling, max_scrolls, scroll_to_end_page)
+            request_success, request_error_msg = self._make_dynamic_request(url, pre_scrape_interactions, enable_scrolling, max_scrolls, scroll_to_end_page)
             
             if request_success:
                 if not scraper_should_run: # Check after _make_dynamic_request if it was cancelled during
@@ -437,7 +524,7 @@ class DynamicWebScraper:
             logger.error(error_msg)
             return pd.DataFrame(), error_msg
 
-    def scrape_dynamic_with_pagination(self, url, container_selector, custom_fields,
+    def scrape_dynamic_with_pagination(self, url, container_selector, custom_fields, pre_scrape_interactions: List[str],
                                      start_page, end_page, pagination_type, page_param=None,
                                      enable_scrolling=False, max_scrolls=5, scroll_to_end_page: bool = False,
                                      next_button_selector=None):
@@ -469,6 +556,12 @@ class DynamicWebScraper:
                 err_msg = f"Initial page load failed for {url} during pagination: {str(e)}"
                 logger.error(err_msg)
                 return pd.DataFrame(), err_msg
+
+            logger.info("Performing pre-scrape interactions for initial page in pagination...")
+            if pre_scrape_interactions:
+                if not self._perform_pre_scrape_interactions(pre_scrape_interactions):
+                    logger.info("Pre-scrape interactions cancelled during pagination setup.")
+                    return pd.DataFrame(), "Pre-scrape interactions cancelled."
             
             logger.info("Initial page load for pagination, waiting...")
             if not cancellable_sleep(random.uniform(2, 4)):
@@ -610,7 +703,8 @@ def scrape_dynamic_with_pagination(
     enable_scrolling: bool = False,
     max_scrolls: int = 5,
     scroll_to_end_page: bool = False, # Added
-    next_button_selector: Optional[str] = None
+    next_button_selector: Optional[str] = None,
+    pre_scrape_interactions: Optional[List[str]] = None
 ):
     """
     Scrapes dynamic data from multiple pages using pagination.
@@ -636,6 +730,7 @@ def scrape_dynamic_with_pagination(
             url=url,
             container_selector=container_selector,
             custom_fields=custom_fields,
+            pre_scrape_interactions=pre_scrape_interactions or [],
             start_page=start_page,
             end_page=end_page,
             pagination_type=pagination_type,
@@ -674,7 +769,8 @@ def scrape_dynamic_data(
     custom_fields: list,
     enable_scrolling: bool = False,
     max_scrolls: int = 5,
-    scroll_to_end_page: bool = False # Added
+    scroll_to_end_page: bool = False, # Added
+    pre_scrape_interactions: Optional[List[str]] = None
 ):
     """
     Scrapes dynamic data from the given URL using the provided container selector and custom fields.
@@ -723,6 +819,7 @@ def scrape_dynamic_data(
             url,
             container_selector,
             custom_fields,
+            pre_scrape_interactions=pre_scrape_interactions or [],
             enable_scrolling=enable_scrolling,
             max_scrolls=max_scrolls,
             scroll_to_end_page=scroll_to_end_page
