@@ -1,7 +1,6 @@
 import React, { createContext, useState, useEffect, useContext, useCallback } from 'react';
 
 const initialScraperFormData = {
-  staticUrl: "",
   dynamicUrl: "",
   dynamicContainerSelector: "",
   dynamicEnableScrolling: false,
@@ -15,6 +14,7 @@ const initialScraperFormData = {
   dynamicNextButtonSelector: "", // User will typically provide this
   interactiveStartUrl: "", // Added for interactive mode start URL
   isInteractiveMode: false, // Added for remembering interactive mode toggle
+  interactiveSessionId: null, // Added for persisting interactive session ID
 };
 
 const initialScrapeOperationState = {
