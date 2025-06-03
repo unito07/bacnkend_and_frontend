@@ -83,7 +83,7 @@ export default function InteractiveScraperMode() {
   const [tempMaxScrolls, setTempMaxScrolls] = useState(formData.dynamicMaxScrolls);
   
   // const [interactiveSessionId, setInteractiveSessionId] = useState(null); // Removed: Now using context
-  const [interactiveModeLoading, setInteractiveModeLoading] = useState(false);
+  // const [interactiveModeLoading, setInteractiveModeLoading] = useState(false); // Removed: Now using context formData.isInteractiveSessionStarting
 
   useEffect(() => {
     setFormData(prev => {
@@ -141,7 +141,8 @@ export default function InteractiveScraperMode() {
   };
 
   const handleStartInteractiveSession = async () => {
-    setInteractiveModeLoading(true);
+    // setInteractiveModeLoading(true); // Removed
+    setFormData(prev => ({ ...prev, isInteractiveSessionStarting: true }));
     const operationKey = Date.now().toString();
     startScrapeOperation('interactive-start', operationKey);
     try {
@@ -163,7 +164,8 @@ export default function InteractiveScraperMode() {
       toast.error("Error starting interactive session: " + err.message);
       setScrapeOperationError(operationKey, "Error: " + err.message);
     } finally {
-      setInteractiveModeLoading(false);
+      // setInteractiveModeLoading(false); // Removed
+      setFormData(prev => ({ ...prev, isInteractiveSessionStarting: false }));
     }
   };
 
@@ -213,7 +215,8 @@ export default function InteractiveScraperMode() {
       toast.info("No active interactive session to end.");
       return;
     }
-    setInteractiveModeLoading(true);
+    // setInteractiveModeLoading(true); // Removed
+    setFormData(prev => ({ ...prev, isInteractiveSessionStarting: true }));
     const operationKey = Date.now().toString();
     startScrapeOperation('interactive-end', operationKey);
     try {
@@ -234,7 +237,8 @@ export default function InteractiveScraperMode() {
       toast.error("Error ending interactive session: " + err.message);
       setScrapeOperationError(operationKey, "Error: " + err.message); // Use operationKey here
     } finally {
-      setInteractiveModeLoading(false);
+      // setInteractiveModeLoading(false); // Removed
+      setFormData(prev => ({ ...prev, isInteractiveSessionStarting: false }));
     }
   };
   
@@ -280,17 +284,17 @@ export default function InteractiveScraperMode() {
               onChange={e => setFormData(prev => ({ ...prev, interactiveStartUrl: e.target.value }))}
               placeholder="https://example.com (optional)"
               className="mt-1 text-base p-2 bg-[var(--muted)] text-[var(--foreground)] border-[var(--input)] focus:ring-[var(--ring)] focus:border-[var(--ring)] rounded-md"
-              disabled={interactiveModeLoading || !!formData.interactiveSessionId}
+              disabled={formData.isInteractiveSessionStarting || !!formData.interactiveSessionId}
             />
         </div>
         {!formData.interactiveSessionId ? (
           <Button
             type="button"
             onClick={handleStartInteractiveSession}
-            disabled={interactiveModeLoading}
+            disabled={formData.isInteractiveSessionStarting}
             className="w-full text-lg py-3 bg-green-500 hover:bg-green-600 text-white rounded-md"
           >
-            {interactiveModeLoading ? "Starting..." : "Start Interactive Session"}
+            {formData.isInteractiveSessionStarting ? "Starting..." : "Start Interactive Session"}
           </Button>
         ) : (
           <div className="space-y-3">
@@ -300,11 +304,11 @@ export default function InteractiveScraperMode() {
             <Button
               type="button"
               onClick={handleEndInteractiveSession}
-              disabled={interactiveModeLoading}
+              disabled={formData.isInteractiveSessionStarting}
               variant="destructive"
               className="w-full text-lg py-3 rounded-md"
             >
-              {interactiveModeLoading ? "Ending..." : "End Interactive Session"}
+              {formData.isInteractiveSessionStarting ? "Ending..." : "End Interactive Session"}
             </Button>
           </div>
         )}

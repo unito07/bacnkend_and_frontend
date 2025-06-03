@@ -204,8 +204,8 @@ function HistoryLogsPage() {
   };
 
   const getProcessedDataForDisplayAndDownload = (scrapedData, requestPayload, scrapeType) => {
-    const isDynamicScrape = scrapeType === 'Dynamic' || scrapeType === 'Dynamic (Paginated)';
-    if (isDynamicScrape && Array.isArray(scrapedData) && scrapedData.length > 0) {
+    const isTableDisplayType = scrapeType === 'Dynamic' || scrapeType === 'Dynamic (Paginated)' || scrapeType === 'interactive-scrape' || scrapeType === 'Interactive';
+    if (isTableDisplayType && Array.isArray(scrapedData) && scrapedData.length > 0) {
       let columns = [];
       if (requestPayload && Array.isArray(requestPayload.custom_fields) && requestPayload.custom_fields.length > 0) {
         columns = requestPayload.custom_fields.map(field => field.name);
@@ -300,50 +300,45 @@ function HistoryLogsPage() {
     logs.forEach((log, index) => {
       // Add a delay for each download to help browsers manage multiple downloads
       setTimeout(() => {
-        const rawScrapedData = log.scrapedData; // Use raw scrapedData directly
+        // Get processed (filtered) data and columns
+        const { processedData, columns: derivedColumns, isEmpty } = getProcessedDataForDisplayAndDownload(
+          log.scrapedData,
+          log.requestPayload,
+          log.scrapeType
+        );
+
         const filename = `log_${log.id}_${log.scrapeType.replace(/[\s()]/g, '_')}_${new Date(log.timestamp).toISOString().split('T')[0]}.${formatType}`;
 
-        // Check if rawScrapedData is null or undefined before proceeding
-        if (rawScrapedData === null || typeof rawScrapedData === 'undefined') {
-          toast.warn(`Skipping download for log ${log.id}: Original scraped data is null or undefined.`);
+        if (isEmpty && formatType === "csv") { // For CSV, if processed data is empty, toast and skip.
+          toast.warn(`Skipping CSV download for log ${log.id}: No data after filtering or data is empty.`);
+          return;
+        }
+        if (processedData === null || typeof processedData === 'undefined') { // For JSON, check if processedData is null/undefined
+          toast.warn(`Skipping download for log ${log.id}: Scraped data is null or undefined.`);
           return;
         }
         
-        // For CSV, we still might need columns if it's an array of objects.
-        // We can derive columns from requestPayload or the data itself if it's an array.
-        let csvColumns = [];
-        if (log.scrapeType === 'Dynamic' || log.scrapeType === 'Dynamic (Paginated)') {
-            if (log.requestPayload && Array.isArray(log.requestPayload.custom_fields) && log.requestPayload.custom_fields.length > 0) {
-                csvColumns = log.requestPayload.custom_fields.map(field => field.name);
-            } else if (Array.isArray(rawScrapedData) && rawScrapedData.length > 0 && typeof rawScrapedData[0] === 'object' && rawScrapedData[0] !== null) {
-                csvColumns = Object.keys(rawScrapedData[0]);
-            }
-        }
-
-
         if (formatType === "json") {
-          downloadJsonData(rawScrapedData, filename);
+          // For JSON, we typically download the original structure if it exists,
+          // or the processedData if it's more relevant (e.g. if filtering also implies structural changes, though not in this case)
+          // Here, downloading log.scrapedData (original) might be preferred by users for JSON.
+          // However, to be consistent with "what you see is what you get", using processedData.
+          // If original is strictly needed, this could be `downloadJsonData(log.scrapedData, filename);`
+          downloadJsonData(processedData, filename);
         } else if (formatType === "csv") {
-          if (log.scrapeType === 'Static' && typeof rawScrapedData === 'string') {
-            // If it's a non-empty string, create a single-cell CSV
-            if (rawScrapedData.trim() !== '') {
-              const staticCsvData = [{ scrapedData: rawScrapedData }];
+          // For Static type, if processedData is a string, wrap it for CSV
+          if (log.scrapeType === 'Static' && typeof processedData === 'string') {
+            if (processedData.trim() !== '') {
+              const staticCsvData = [{ scrapedData: processedData }];
               downloadCsvData(staticCsvData, ["scrapedData"], filename);
             } else {
-              toast.warn(`Skipping CSV download for log ${log.id} (Static): Scraped data string is empty.`);
+              toast.warn(`Skipping CSV download for log ${log.id} (Static): Scraped data string is empty after processing.`);
             }
-          } else if (Array.isArray(rawScrapedData)) {
-            // If it's an array (empty or not), attempt CSV download
-            if (rawScrapedData.length > 0) {
-              downloadCsvData(rawScrapedData, csvColumns, filename);
-            } else {
-               // If array is empty, still create a CSV with headers if possible, or an empty file.
-               // downloadCsvData handles empty data array by showing a toast, which is fine.
-               downloadCsvData(rawScrapedData, csvColumns, filename); // Will show "No data available for CSV"
-            }
+          } else if (Array.isArray(processedData)) {
+            // For table-like data, use processedData and derivedColumns
+            downloadCsvData(processedData, derivedColumns, filename);
           } else {
-            // If data is not a string (for static) or an array (for dynamic), it's not suitable for CSV.
-            toast.warn(`Skipping CSV download for log ${log.id}: Data is not in a recognized format for CSV (Type: ${log.scrapeType}).`);
+            toast.warn(`Skipping CSV download for log ${log.id}: Data is not in a recognized format for CSV after processing (Type: ${log.scrapeType}).`);
           }
         }
       }, index * 500); // 500ms delay between each download initiation
@@ -421,7 +416,12 @@ function HistoryLogsPage() {
                           <Button variant="outline" size="sm" onClick={() => { const { processedData } = getProcessedDataForDisplayAndDownload(selectedLog.scrapedData, selectedLog.requestPayload, selectedLog.scrapeType); downloadJsonData(processedData, `log_${selectedLog.id}_scraped_data.json`); }}>
                             <Download className="mr-2 h-4 w-4" /> JSON
                           </Button>
-                          {(selectedLog.scrapeType === 'Dynamic' || selectedLog.scrapeType === 'Dynamic (Paginated)') && Array.isArray(selectedLog.scrapedData) && selectedLog.scrapedData.length > 0 && (
+                          {(
+                            selectedLog.scrapeType === 'Dynamic' ||
+                            selectedLog.scrapeType === 'Dynamic (Paginated)' ||
+                            selectedLog.scrapeType === 'interactive-scrape' ||
+                            selectedLog.scrapeType === 'Interactive'
+                           ) && Array.isArray(selectedLog.scrapedData) && (
                             <Button variant="outline" size="sm" onClick={() => { const { processedData, columns } = getProcessedDataForDisplayAndDownload(selectedLog.scrapedData, selectedLog.requestPayload, selectedLog.scrapeType); downloadCsvData(processedData, columns, `log_${selectedLog.id}_scraped_data.csv`); }}>
                               <Download className="mr-2 h-4 w-4" /> CSV
                             </Button>
@@ -445,9 +445,9 @@ function HistoryLogsPage() {
 
 const renderScrapedDataDisplay = (scrapedData, requestPayload, scrapeType, getProcessedDataFn, currentTablePage, setCurrentTablePage) => {
   const { processedData, columns, isEmpty } = getProcessedDataFn(scrapedData, requestPayload, scrapeType);
-  const isDynamicScrape = scrapeType === 'Dynamic' || scrapeType === 'Dynamic (Paginated)';
+  const isTableDisplayType = scrapeType === 'Dynamic' || scrapeType === 'Dynamic (Paginated)' || scrapeType === 'interactive-scrape' || scrapeType === 'Interactive';
 
-  if (isEmpty && isDynamicScrape && Array.isArray(scrapedData) && scrapedData.length > 0) {
+  if (isEmpty && isTableDisplayType && Array.isArray(scrapedData) && scrapedData.length > 0) {
     return <p className="text-muted-foreground text-xs">All scraped data rows were filtered out. <pre className="mt-1 p-1 bg-gray-800 text-gray-300 text-xs rounded">{JSON.stringify(scrapedData, null, 2)}</pre></p>;
   }
   if (isEmpty) {
@@ -458,7 +458,7 @@ const renderScrapedDataDisplay = (scrapedData, requestPayload, scrapeType, getPr
     return <ScrollArea className="h-[300px] w-full rounded-md border bg-muted"><pre className="p-2 text-xs">{processedData}</pre></ScrollArea>;
   }
 
-  if (isDynamicScrape && Array.isArray(processedData) && processedData.length > 0) {
+  if (isTableDisplayType && Array.isArray(processedData) && processedData.length > 0) {
     if (columns.length === 0) {
       return <ScrollArea className="h-[300px] w-full rounded-md border bg-muted"><pre className="p-2 text-xs">{JSON.stringify(processedData, null, 2)}</pre></ScrollArea>;
     }

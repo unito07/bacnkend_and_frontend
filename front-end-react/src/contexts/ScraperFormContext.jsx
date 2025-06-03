@@ -15,6 +15,7 @@ const initialScraperFormData = {
   interactiveStartUrl: "", // Added for interactive mode start URL
   isInteractiveMode: false, // Added for remembering interactive mode toggle
   interactiveSessionId: null, // Added for persisting interactive session ID
+  isInteractiveSessionStarting: false, // Added to persist loading state for session start/end
 };
 
 const initialScrapeOperationState = {
