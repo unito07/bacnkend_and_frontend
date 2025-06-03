@@ -1,6 +1,6 @@
 fastapi
 uvicorn[standard]
-requests
-beautifulsoup4
 selenium
-python-dotenv
+pandas
+selenium-stealth
+pytz

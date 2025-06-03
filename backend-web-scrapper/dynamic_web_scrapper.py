@@ -1,5 +1,3 @@
-import requests
-from bs4 import BeautifulSoup
 import time
 import re
 from selenium import webdriver
@@ -58,24 +56,6 @@ def cancellable_sleep(duration, interval=0.1):
             break
         time.sleep(current_interval)
     return True # Indicates sleep completed
-
-def scrape_data(url: str):
-    """
-    Scrapes data from the given URL and returns the page title and a text snippet.
-    """
-    try:
-        response = requests.get(url, timeout=10)
-        response.raise_for_status()
-        soup = BeautifulSoup(response.text, "html.parser")
-        title = soup.title.string if soup.title else "No title found"
-        text = soup.get_text(separator=" ", strip=True)
-        snippet = text[:200] + "..." if len(text) > 200 else text
-        return {
-            "title": title,
-            "snippet": snippet
-        }
-    except Exception as e:
-        return {"error": str(e)}
 
 class DynamicWebScraper:
     def __init__(self, delay=2, timeout=10, max_retries=3, proxy=None, scroll_pause_time=2.5): # scroll_to_end_page will be passed as a method argument, not an instance attribute
