@@ -9,8 +9,7 @@ const initialScraperFormData = {
   dynamicScrollToEndPage: false, // Added
   dynamicFields: [{ name: "", selector: "" }],
   dynamicEnablePagination: false,
-  dynamicStartPage: 1,
-  dynamicEndPage: 5,
+  dynamicNumAdditionalPages: 0, // Renamed from dynamicEndPage, default to 0
   dynamicPaginationType: "Next Button", // Options: "Next Button", "URL Parameter"
   dynamicPageParam: "page", // Default for URL parameter type
   dynamicNextButtonSelector: "", // User will typically provide this

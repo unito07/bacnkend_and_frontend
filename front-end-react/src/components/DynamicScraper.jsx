@@ -82,10 +82,8 @@ export default function DynamicScraper() {
   const { isLoadingScrape, scrapeResults, scrapeError, lastOperationKey, taskId } = scrapeOperation;
 
   // State for inline editing of page numbers
-  const [editingStartPage, setEditingStartPage] = useState(false);
-  const [tempStartPage, setTempStartPage] = useState(formData.dynamicStartPage);
-  const [editingEndPage, setEditingEndPage] = useState(false);
-  const [tempEndPage, setTempEndPage] = useState(formData.dynamicEndPage);
+  const [editingNumAdditionalPages, setEditingNumAdditionalPages] = useState(false);
+  const [tempNumAdditionalPages, setTempNumAdditionalPages] = useState(formData.dynamicNumAdditionalPages);
   const [editingMaxScrolls, setEditingMaxScrolls] = useState(false);
   const [tempMaxScrolls, setTempMaxScrolls] = useState(formData.dynamicMaxScrolls);
 
@@ -109,34 +107,6 @@ export default function DynamicScraper() {
       return prev;
     });
   }, [setFormData]);
-
-  // Effect to manage start and end page logic for pagination
-  useEffect(() => {
-    if (formData.dynamicEnablePagination) {
-      const currentStart = parseInt(formData.dynamicStartPage, 10) || 1;
-      const currentEnd = parseInt(formData.dynamicEndPage, 10);
-      let desiredStart = currentStart < 1 ? 1 : currentStart;
-      let desiredEnd = currentEnd;
-
-      if (isNaN(desiredEnd) || desiredEnd <= desiredStart) {
-        desiredEnd = desiredStart + 1;
-      }
-
-      if (formData.dynamicStartPage !== desiredStart || formData.dynamicEndPage !== desiredEnd) {
-        setFormData(prev => ({
-          ...prev,
-          dynamicStartPage: desiredStart,
-          dynamicEndPage: desiredEnd,
-        }));
-      }
-    }
-  }, [
-    formData.dynamicEnablePagination, 
-    formData.dynamicStartPage, 
-    formData.dynamicEndPage, 
-    setFormData
-  ]);
-
 
   const handleFieldChange = (id, key, value) => { // Changed idx to id
     setFormData(prev => ({
@@ -195,8 +165,8 @@ export default function DynamicScraper() {
         scroll_to_end_page: formData.dynamicEnableScrolling ? formData.dynamicScrollToEndPage : false, // Only send if scrolling is enabled
         // Pagination fields
         enable_pagination: formData.dynamicEnablePagination,
-        start_page: Number(formData.dynamicStartPage),
-        end_page: Number(formData.dynamicEndPage),
+        start_page: 1, // Start page is always 1 for this logic
+        end_page: 1 + Number(formData.dynamicNumAdditionalPages), // Current page + additional pages
         pagination_type: formData.dynamicPaginationType,
         page_param: formData.dynamicPageParam,
         next_button_selector: formData.dynamicNextButtonSelector,
@@ -617,7 +587,7 @@ export default function DynamicScraper() {
                         onClick={() => setFormData(prev => ({ ...prev, dynamicMaxScrolls: Math.max(1, (parseInt(prev.dynamicMaxScrolls, 10) || 1) - 1) }))}
                         className="border-[var(--input)] hover:bg-[var(--muted)]"
                         aria-label="Decrease max scrolls"
-                        disabled={editingMaxScrolls || editingStartPage || editingEndPage}
+                        disabled={editingMaxScrolls || editingNumAdditionalPages}
                       >
                         <Minus className="h-4 w-4 text-[var(--foreground)]" />
                       </Button>
@@ -663,7 +633,7 @@ export default function DynamicScraper() {
                         onClick={() => setFormData(prev => ({ ...prev, dynamicMaxScrolls: (parseInt(prev.dynamicMaxScrolls, 10) || 1) + 1 }))}
                         className="border-[var(--input)] hover:bg-[var(--muted)]"
                         aria-label="Increase max scrolls"
-                        disabled={editingMaxScrolls || editingStartPage || editingEndPage}
+                        disabled={editingMaxScrolls || editingNumAdditionalPages}
                       >
                           <Plus className="h-4 w-4 text-[var(--foreground)]" />
                         </Button>
@@ -766,131 +736,65 @@ export default function DynamicScraper() {
 
                 {formData.dynamicEnablePagination && (
                   <div className="space-y-4 p-4 border-t border-[var(--border)]/70">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
-                      {/* Start Page Counter */}
+                    <div className="grid grid-cols-1 gap-x-6 gap-y-4">
+                      {/* Number of Additional Pages Counter */}
                       <div>
-                        <Label htmlFor="start-page-counter" className="text-base text-[var(--muted-foreground)] block mb-2 text-center">Start Page</Label>
+                        <Label htmlFor="num-additional-pages-counter" className="text-base text-[var(--muted-foreground)] block mb-2 text-center">Number of Additional Pages</Label>
                         <div className="flex items-center justify-center space-x-2">
                           <Button
                             type="button"
                             variant="outline"
                             size="icon"
-                            onClick={() => setFormData(prev => ({ ...prev, dynamicStartPage: Math.max(1, (parseInt(prev.dynamicStartPage, 10) || 1) - 1) }))}
+                            onClick={() => setFormData(prev => ({ ...prev, dynamicNumAdditionalPages: Math.max(0, (parseInt(prev.dynamicNumAdditionalPages, 10) || 0) - 1) }))}
                             className="border-[var(--input)] hover:bg-[var(--muted)]"
-                            aria-label="Decrease start page"
-                            disabled={editingStartPage || editingEndPage}
+                            aria-label="Decrease number of additional pages"
+                            disabled={editingNumAdditionalPages}
                           >
                             <Minus className="h-4 w-4 text-[var(--foreground)]" />
                           </Button>
-                          {editingStartPage ? (
-                            <Input
-                              type="text" // Use text to allow intermediate non-numeric input before validation
-                              value={tempStartPage}
-                              onChange={(e) => {
-                                const val = e.target.value;
-                                // Allow only digits or empty string for intermediate input
-                                if (/^\d*$/.test(val)) {
-                                  setTempStartPage(val);
-                                }
-                              }}
-                              onBlur={() => {
-                                const finalVal = parseInt(tempStartPage, 10);
-                                if (!isNaN(finalVal) && finalVal >= 1) {
-                                  setFormData(prev => ({ ...prev, dynamicStartPage: finalVal }));
-                                } else {
-                                  // Reset to current formData value if input is invalid
-                                  setTempStartPage(formData.dynamicStartPage);
-                                }
-                                setEditingStartPage(false);
-                              }}
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter') {
-                                  e.target.blur(); // Trigger onBlur to save
-                                } else if (e.key === 'Escape') {
-                                  setTempStartPage(formData.dynamicStartPage); // Revert
-                                  setEditingStartPage(false);
-                                }
-                              }}
-                              className="w-16 text-center text-base p-1 bg-[var(--muted)] text-[var(--foreground)] border-[var(--input)] focus:ring-[var(--ring)] focus:border-[var(--ring)] rounded-md"
-                              autoFocus
-                            />
-                          ) : (
-                            <div onClick={() => { setTempStartPage(formData.dynamicStartPage); setEditingStartPage(true); }} className="cursor-pointer">
-                              <AnimatedCounter value={parseInt(formData.dynamicStartPage, 10) || 1} />
-                            </div>
-                          )}
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="icon"
-                            onClick={() => setFormData(prev => ({ ...prev, dynamicStartPage: (parseInt(prev.dynamicStartPage, 10) || 1) + 1 }))}
-                            className="border-[var(--input)] hover:bg-[var(--muted)]"
-                            aria-label="Increase start page"
-                            disabled={editingStartPage || editingEndPage}
-                          >
-                            <Plus className="h-4 w-4 text-[var(--foreground)]" />
-                          </Button>
-                        </div>
-                      </div>
-                      {/* End Page Counter */}
-                      <div>
-                        <Label htmlFor="end-page-counter" className="text-base text-[var(--muted-foreground)] block mb-2 text-center">End Page</Label>
-                        <div className="flex items-center justify-center space-x-2">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="icon"
-                            onClick={() => setFormData(prev => ({ ...prev, dynamicEndPage: Math.max((parseInt(prev.dynamicStartPage, 10) || 1) + 1, (parseInt(prev.dynamicEndPage, 10) || 0) - 1) }))}
-                            className="border-[var(--input)] hover:bg-[var(--muted)]"
-                            aria-label="Decrease end page"
-                            disabled={editingStartPage || editingEndPage}
-                          >
-                            <Minus className="h-4 w-4 text-[var(--foreground)]" />
-                          </Button>
-                          {editingEndPage ? (
+                          {editingNumAdditionalPages ? (
                             <Input
                               type="text"
-                              value={tempEndPage}
+                              value={tempNumAdditionalPages}
                               onChange={(e) => {
                                 const val = e.target.value;
                                 if (/^\d*$/.test(val)) {
-                                  setTempEndPage(val);
+                                  setTempNumAdditionalPages(val);
                                 }
                               }}
                               onBlur={() => {
-                                const finalVal = parseInt(tempEndPage, 10);
-                                const startVal = parseInt(formData.dynamicStartPage, 10) || 1;
-                                if (!isNaN(finalVal) && finalVal > startVal) {
-                                  setFormData(prev => ({ ...prev, dynamicEndPage: finalVal }));
+                                const finalVal = parseInt(tempNumAdditionalPages, 10);
+                                if (!isNaN(finalVal) && finalVal >= 0) {
+                                  setFormData(prev => ({ ...prev, dynamicNumAdditionalPages: finalVal }));
                                 } else {
-                                  setTempEndPage(formData.dynamicEndPage); // Revert
+                                  setTempNumAdditionalPages(formData.dynamicNumAdditionalPages); // Revert
                                 }
-                                setEditingEndPage(false);
+                                setEditingNumAdditionalPages(false);
                               }}
                               onKeyDown={(e) => {
                                 if (e.key === 'Enter') {
                                   e.target.blur();
                                 } else if (e.key === 'Escape') {
-                                  setTempEndPage(formData.dynamicEndPage);
-                                  setEditingEndPage(false);
+                                  setTempNumAdditionalPages(formData.dynamicNumAdditionalPages);
+                                  setEditingNumAdditionalPages(false);
                                 }
                               }}
                               className="w-16 text-center text-base p-1 bg-[var(--muted)] text-[var(--foreground)] border-[var(--input)] focus:ring-[var(--ring)] focus:border-[var(--ring)] rounded-md"
                               autoFocus
                             />
                           ) : (
-                            <div onClick={() => { setTempEndPage(formData.dynamicEndPage); setEditingEndPage(true); }} className="cursor-pointer">
-                              <AnimatedCounter value={parseInt(formData.dynamicEndPage, 10) || ((parseInt(formData.dynamicStartPage, 10) || 1) + 1)} />
+                            <div onClick={() => { setTempNumAdditionalPages(formData.dynamicNumAdditionalPages); setEditingNumAdditionalPages(true); }} className="cursor-pointer">
+                              <AnimatedCounter value={parseInt(formData.dynamicNumAdditionalPages, 10) || 0} />
                             </div>
                           )}
                           <Button
                             type="button"
                             variant="outline"
                             size="icon"
-                            onClick={() => setFormData(prev => ({ ...prev, dynamicEndPage: (parseInt(prev.dynamicEndPage, 10) || 0) + 1 }))}
+                            onClick={() => setFormData(prev => ({ ...prev, dynamicNumAdditionalPages: (parseInt(prev.dynamicNumAdditionalPages, 10) || 0) + 1 }))}
                             className="border-[var(--input)] hover:bg-[var(--muted)]"
-                            aria-label="Increase end page"
-                            disabled={editingStartPage || editingEndPage}
+                            aria-label="Increase number of additional pages"
+                            disabled={editingNumAdditionalPages}
                           >
                             <Plus className="h-4 w-4 text-[var(--foreground)]" />
                           </Button>
