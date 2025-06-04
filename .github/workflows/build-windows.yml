@@ -1,0 +1,77 @@
+# GitHub Actions Workflow for Building Windows Executable
+#
+# Why this workflow exists:
+# 1. Automates the build of a Windows .exe for the Python application.
+# 2. Enables building from a macOS (or any other OS) developer environment using GitHub-hosted Windows runners.
+# 3. Stores the built executable as a downloadable artifact.
+# 4. Provides a scalable CI/CD foundation for future enhancements like code signing and release packaging.
+
+name: Build Windows Executable
+
+# Controls when the workflow will run
+on:
+  # Triggers the workflow on push events but only for the makingfile branch
+  push:
+    branches: [ makingfile ]
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    name: Build Python App for Windows
+    runs-on: windows-latest # Use a GitHub-hosted Windows runner
+
+    defaults:
+      run:
+        shell: bash # Prefer bash for consistency, though some steps might use powershell
+
+    steps:
+      # Step 1: Check out the repository code
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      # Step 2: Set up Python environment
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip' # Cache pip dependencies
+
+      # Step 3: Install project dependencies
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r backend-web-scrapper/requirements.txt
+
+      # Step 4: Download and Set Up ChromeDriver for Selenium
+      # ChromeDriver version should be compatible with the Chrome version used by PyInstaller/Selenium
+      # URL: https://storage.googleapis.com/chrome-for-testing-public/137.0.7151.68/win64/chrome-win64.zip
+      - name: Download and Set up ChromeDriver
+        run: |
+          # Using PowerShell for native Windows commands
+          powershell -Command "Invoke-WebRequest -Uri https://storage.googleapis.com/chrome-for-testing-public/137.0.7151.68/win64/chrome-win64.zip -OutFile chrome-win64.zip"
+          powershell -Command "Expand-Archive -Path chrome-win64.zip -DestinationPath ./"
+          # The zip extracts to a folder like 'chrome-win64', chromedriver.exe is inside 'chrome-win64/chrome-win64/'
+          # Add the inner chrome-win64 directory (containing chromedriver.exe) to PATH
+          echo "$GITHUB_WORKSPACE/chrome-win64/chrome-win64" >> $GITHUB_PATH
+          # Verify chromedriver is accessible
+          chromedriver --version
+        shell: bash # This step uses mixed commands, ensure shell compatibility or split if needed.
+                    # For simplicity, keeping bash and using powershell -Command for windows specific parts.
+
+      # Step 5: Build the executable using PyInstaller
+      # Assumes web_scraper_backend.spec and other necessary files are in backend-web-scrapper/
+      - name: Build executable with PyInstaller
+        run: |
+          cd backend-web-scrapper
+          pyinstaller web_scraper_backend.spec
+        # The output (dist folder) will be in backend-web-scrapper/dist/
+
+      # Step 6: Upload the built executable as an artifact
+      # This makes the dist/ folder available for download from the GitHub Actions run page.
+      - name: Upload Windows Executable Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: web_scraper_windows_exe # Name of the artifact
+          path: backend-web-scrapper/dist/ # Path to the folder to upload
+          if-no-files-found: error # Fail the step if dist/ is empty or not found
