@@ -47,6 +47,16 @@ jobs:
           python-version: '3.11'
           cache: 'pip' # Cache pip dependencies
 
+      # Step 2.5: Build React frontend
+      - name: Build React frontend
+        run: |
+          echo "Building React frontend..."
+          cd front-end-react
+          npm ci
+          npm run build
+          echo "React frontend build complete. 'dist' folder should now exist in front-end-react."
+        # This ensures front-end-react/dist is available for PyInstaller
+
       # Step 3 & 5 combined: Create venv, install dependencies (including PyInstaller), and build
       - name: Create venv, Install Deps, and Build with PyInstaller
         shell: cmd # Using cmd for reliable venv activation on Windows
