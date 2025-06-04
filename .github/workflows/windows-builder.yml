@@ -59,6 +59,9 @@ jobs:
           pip install pyinstaller
           echo "Dependencies installed. Starting PyInstaller build..."
           cd backend-web-scrapper
+          echo "Listing files in backend-web-scrapper directory:"
+          dir
+          echo "Attempting to build with web_scraper_backend.spec..."
           pyinstaller --noconfirm --clean web_scraper_backend.spec
           echo "PyInstaller build finished."
         # The output (dist folder) will be in backend-web-scrapper/dist/
