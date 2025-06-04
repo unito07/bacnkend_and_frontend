@@ -47,25 +47,35 @@ jobs:
           python-version: '3.11'
           cache: 'pip' # Cache pip dependencies
 
-      # Step 3: Install project dependencies
-      - name: Install dependencies
+      # Step 3 & 5 combined: Create venv, install dependencies (including PyInstaller), and build
+      - name: Create venv, Install Deps, and Build with PyInstaller
+        shell: cmd # Using cmd for reliable venv activation on Windows
         run: |
+          echo "Setting up virtual environment and installing dependencies..."
+          python -m venv venv
+          call venv\Scripts\activate
           python -m pip install --upgrade pip
           pip install -r backend-web-scrapper/requirements.txt
+          pip install pyinstaller
+          echo "Dependencies installed. Starting PyInstaller build..."
+          cd backend-web-scrapper
+          pyinstaller --noconfirm --clean web_scraper_backend.spec
+          echo "PyInstaller build finished."
+        # The output (dist folder) will be in backend-web-scrapper/dist/
 
-      # Step 4: Cache and Set Up ChromeDriver
+      # Step 4: Cache and Set Up ChromeDriver (Remains largely the same, just re-numbered logic)
       - name: Cache ChromeDriver
-        id: cache-chromedriver # Give an id to refer to its outputs
+        id: cache-chromedriver
         uses: actions/cache@v4
         with:
-          path: chrome-win64.zip # Path to the file to cache
-          key: ${{ runner.os }}-chromedriver-${{ env.CHROME_ZIP_URL }} # Cache key based on OS and the literal URL string
+          path: chrome-win64.zip
+          key: ${{ runner.os }}-chromedriver-${{ env.CHROME_ZIP_URL }}
           restore-keys: |
             ${{ runner.os }}-chromedriver-
 
       - name: Download and Set up ChromeDriver
         shell: pwsh
-        env: # Env block should be at the step level
+        env:
           CACHE_HIT: ${{ steps.cache-chromedriver.outputs.cache-hit }}
         run: |
           echo "Start ChromeDriver Setup: $(Get-Date -Format s)"
@@ -76,22 +86,11 @@ jobs:
             echo "ChromeDriver cache hit. Skipping download."
           }
           Expand-Archive -Path chrome-win64.zip -DestinationPath ./
-          # The zip extracts to a folder like 'chrome-win64', chromedriver.exe is inside 'chrome-win64/chrome-win64/'
-          # Add the inner chrome-win64 directory (containing chromedriver.exe) to PATH
           $ChromedriverPath = Join-Path -Path $env:GITHUB_WORKSPACE -ChildPath "chrome-win64/chrome-win64"
           echo "Adding to PATH: $ChromedriverPath"
           echo "$ChromedriverPath" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-          # Verify chromedriver is accessible
           chromedriver --version
           echo "End ChromeDriver Setup: $(Get-Date -Format s)"
-
-      # Step 5: Build the executable using PyInstaller
-      # Assumes web_scraper_backend.spec and other necessary files are in backend-web-scrapper/
-      - name: Build executable with PyInstaller
-        run: |
-          cd backend-web-scrapper
-          pyinstaller web_scraper_backend.spec
-        # The output (dist folder) will be in backend-web-scrapper/dist/
 
       # Step 6: Upload the built executable as an artifact
       # This makes the dist/ folder available for download from the GitHub Actions run page.
