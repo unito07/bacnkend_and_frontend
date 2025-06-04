@@ -47,18 +47,20 @@ jobs:
 
       # Step 4: Download and Set Up ChromeDriver for Selenium
       # ChromeDriver version should be compatible with the Chrome version used by PyInstaller/Selenium
-      - name: Download and Set up ChromeDriver
+      - name: Time and Set up ChromeDriver
+        shell: pwsh # Using PowerShell for Get-Date and native commands
         run: |
-          # Using PowerShell for native Windows commands
-          powershell -Command "Invoke-WebRequest -Uri \"${{ env.CHROME_ZIP_URL }}\" -OutFile chrome-win64.zip"
-          powershell -Command "Expand-Archive -Path chrome-win64.zip -DestinationPath ./"
+          echo "Start ChromeDriver Setup: $(Get-Date -Format s)"
+          Invoke-WebRequest -Uri "${{ env.CHROME_ZIP_URL }}" -OutFile chrome-win64.zip
+          Expand-Archive -Path chrome-win64.zip -DestinationPath ./
           # The zip extracts to a folder like 'chrome-win64', chromedriver.exe is inside 'chrome-win64/chrome-win64/'
           # Add the inner chrome-win64 directory (containing chromedriver.exe) to PATH
-          echo "$GITHUB_WORKSPACE/chrome-win64/chrome-win64" >> $GITHUB_PATH
+          $ChromedriverPath = Join-Path -Path $env:GITHUB_WORKSPACE -ChildPath "chrome-win64/chrome-win64"
+          echo "Adding to PATH: $ChromedriverPath"
+          echo "$ChromedriverPath" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
           # Verify chromedriver is accessible
           chromedriver --version
-        shell: bash # This step uses mixed commands, ensure shell compatibility or split if needed.
-                    # For simplicity, keeping bash and using powershell -Command for windows specific parts.
+          echo "End ChromeDriver Setup: $(Get-Date -Format s)"
 
       # Step 5: Build the executable using PyInstaller
       # Assumes web_scraper_backend.spec and other necessary files are in backend-web-scrapper/
