@@ -20,6 +20,8 @@ jobs:
   build-windows:
     name: Build Python App for Windows
     runs-on: windows-latest # Use a GitHub-hosted Windows runner
+    env:
+      CHROME_ZIP_URL: "https://storage.googleapis.com/chrome-for-testing-public/137.0.7151.68/win64/chrome-win64.zip"
 
     defaults:
       run:
@@ -45,11 +47,10 @@ jobs:
 
       # Step 4: Download and Set Up ChromeDriver for Selenium
       # ChromeDriver version should be compatible with the Chrome version used by PyInstaller/Selenium
-      # URL: https://storage.googleapis.com/chrome-for-testing-public/137.0.7151.68/win64/chrome-win64.zip
       - name: Download and Set up ChromeDriver
         run: |
           # Using PowerShell for native Windows commands
-          powershell -Command "Invoke-WebRequest -Uri https://storage.googleapis.com/chrome-for-testing-public/137.0.7151.68/win64/chrome-win64.zip -OutFile chrome-win64.zip"
+          powershell -Command "Invoke-WebRequest -Uri \"${{ env.CHROME_ZIP_URL }}\" -OutFile chrome-win64.zip"
           powershell -Command "Expand-Archive -Path chrome-win64.zip -DestinationPath ./"
           # The zip extracts to a folder like 'chrome-win64', chromedriver.exe is inside 'chrome-win64/chrome-win64/'
           # Add the inner chrome-win64 directory (containing chromedriver.exe) to PATH
