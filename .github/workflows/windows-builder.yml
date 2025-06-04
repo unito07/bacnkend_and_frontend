@@ -32,6 +32,14 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
+      # Step 1.5: Clean workspace before build
+      - name: Clean workspace
+        run: |
+          git clean -xdf
+        # -x: Remove ignored files too
+        # -d: Remove directories
+        # -f: Force (required if clean.requireForce is not false)
+
       # Step 2: Set up Python environment
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
@@ -45,13 +53,28 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r backend-web-scrapper/requirements.txt
 
-      # Step 4: Download and Set Up ChromeDriver for Selenium
-      # ChromeDriver version should be compatible with the Chrome version used by PyInstaller/Selenium
-      - name: Time and Set up ChromeDriver
-        shell: pwsh # Using PowerShell for Get-Date and native commands
+      # Step 4: Cache and Set Up ChromeDriver
+      - name: Cache ChromeDriver
+        id: cache-chromedriver # Give an id to refer to its outputs
+        uses: actions/cache@v4
+        with:
+          path: chrome-win64.zip # Path to the file to cache
+          key: ${{ runner.os }}-chromedriver-${{ env.CHROME_ZIP_URL }} # Cache key based on OS and the literal URL string
+          restore-keys: |
+            ${{ runner.os }}-chromedriver-
+
+      - name: Download and Set up ChromeDriver
+        shell: pwsh
+        env: # Env block should be at the step level
+          CACHE_HIT: ${{ steps.cache-chromedriver.outputs.cache-hit }}
         run: |
           echo "Start ChromeDriver Setup: $(Get-Date -Format s)"
-          Invoke-WebRequest -Uri "${{ env.CHROME_ZIP_URL }}" -OutFile chrome-win64.zip
+          if ($env:CACHE_HIT -ne 'true') {
+            echo "Cache miss for ChromeDriver. Downloading..."
+            Invoke-WebRequest -Uri "${{ env.CHROME_ZIP_URL }}" -OutFile chrome-win64.zip
+          } else {
+            echo "ChromeDriver cache hit. Skipping download."
+          }
           Expand-Archive -Path chrome-win64.zip -DestinationPath ./
           # The zip extracts to a folder like 'chrome-win64', chromedriver.exe is inside 'chrome-win64/chrome-win64/'
           # Add the inner chrome-win64 directory (containing chromedriver.exe) to PATH
