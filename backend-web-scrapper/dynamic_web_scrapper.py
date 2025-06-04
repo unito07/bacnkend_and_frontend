@@ -14,6 +14,7 @@ import pandas as pd
 import logging
 import random
 import os
+import sys # Added for sys.frozen and sys.executable
 import subprocess
 
 # Configure logging
@@ -102,7 +103,34 @@ class DynamicWebScraper:
                 chrome_options.add_argument(f'--proxy-server={self.proxy}')
 
             # Create service
-            service = Service()
+            # Check for bundled chromedriver
+            bundled_chromedriver_path = None
+            if getattr(sys, 'frozen', False): # Running in a bundle
+                if hasattr(sys, '_MEIPASS'): # PyInstaller one-file bundle
+                    base_path = sys._MEIPASS
+                else: # PyInstaller one-dir bundle
+                    base_path = os.path.dirname(sys.executable)
+                
+                # Path assuming chromedriver was added to 'drivers' subdir in the bundle
+                # For macOS, the binary is often just 'chromedriver'
+                potential_path_mac = os.path.join(base_path, 'drivers', 'chromedriver_mac') 
+                potential_path_generic = os.path.join(base_path, 'drivers', 'chromedriver')
+
+                if os.path.exists(potential_path_mac):
+                    bundled_chromedriver_path = potential_path_mac
+                    logger.info(f"Found bundled macOS chromedriver at: {bundled_chromedriver_path}")
+                elif os.path.exists(potential_path_generic):
+                    bundled_chromedriver_path = potential_path_generic
+                    logger.info(f"Found bundled generic chromedriver at: {bundled_chromedriver_path}")
+                else:
+                    logger.warning(f"Running in bundle, but bundled chromedriver not found at {potential_path_mac} or {potential_path_generic}. Will try system PATH.")
+            
+            if bundled_chromedriver_path:
+                logger.info(f"Using bundled chromedriver: {bundled_chromedriver_path}")
+                service = Service(executable_path=bundled_chromedriver_path)
+            else:
+                logger.info("Using Selenium Manager or chromedriver from system PATH.")
+                service = Service() # Relies on chromedriver in PATH or Selenium Manager
 
             logger.info("Initializing Chrome WebDriver...")
             self.driver = webdriver.Chrome(service=service, options=chrome_options)

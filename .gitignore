@@ -1,16 +1,65 @@
-# OS junk
+# macOS system files
 .DS_Store
+.VolumeIcon.icns
+.AppleDouble
 
-# Dependencies
-node_modules/
+# Python virtual environments
+venv/
+ENV/
+env/
+venv_backend_build/
 
-# Logs and temp
+# VS Code settings
+.vscode/
+
+# Python bytecode
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Test coverage and logs
 *.log
 *.tmp
+*.coverage
+.cache/
+.pytest_cache/
 
 # Build artifacts
 build/
 dist/
+*.spec
 
-# Lock files (optional)
+# Node.js (if frontend involved)
+node_modules/
 package-lock.json
+yarn.lock
+
+# Ignore secrets/env (if any)
+.env
+.env.*
+
+# OS files
+Thumbs.db
+Desktop.ini
+
+# PyInstaller
+*.manifest
+*.exe
+*.app
+*.pkg
+*.dmg
+
+# Project-specific directories
+scraper_logs/
+selenium_chrome_profile_data/
+macos_build_env/
+
+# Chromedriver related
+chromedriver*
+LICENSE.chromedriver
+THIRD_PARTY_NOTICES.chromedriver
+
+# Backup and swap files
+*~
+*.swp

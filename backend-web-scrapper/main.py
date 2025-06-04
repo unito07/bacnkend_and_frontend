@@ -1,19 +1,60 @@
 import asyncio # Added for to_thread
 from fastapi import FastAPI, HTTPException, Body
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from typing import List, Dict, Any, Optional
 from pathlib import Path
 import uuid # Added for session IDs
 import pandas as pd # Added for DataFrame conversion
 import logging # Added for logging
+import webbrowser # For opening the browser
+import threading # For opening browser after server starts
+import os # For path joining
+import sys # For checking if running in PyInstaller bundle
+import requests # Added for static scraping
+from bs4 import BeautifulSoup # Added for static scraping
 
-from dynamic_web_scrapper import DynamicWebScraper, scrape_data, scrape_dynamic_data, scrape_dynamic_with_pagination, set_scraper_status, get_scraper_status # Added DynamicWebScraper
+from dynamic_web_scrapper import DynamicWebScraper, scrape_dynamic_data, scrape_dynamic_with_pagination, set_scraper_status, get_scraper_status # Removed scrape_data
 import log_manager # Import the new log manager
 
 # Configure logging for main.py
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
+
+# --- Static Scrape Function ---
+def scrape_data(url: str):
+    """Performs a simple static scrape of the given URL."""
+    logger.info(f"Static scrape_data called for URL: {url}")
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+    }
+    try:
+        response = requests.get(url, headers=headers, timeout=10)
+        response.raise_for_status()  # Raises an HTTPError for bad responses (4XX or 5XX)
+        soup = BeautifulSoup(response.content, 'html.parser')
+        
+        title = soup.title.string if soup.title else "No title found"
+        
+        # Extract all text, trying to be somewhat clean
+        texts = soup.stripped_strings
+        all_text = "\n".join(list(texts)[:50]) # Limit to first 50 strings to keep it manageable
+
+        return {
+            "url": url,
+            "title": title,
+            "content_preview": all_text[:1000] + "..." if len(all_text) > 1000 else all_text
+        }
+    except requests.exceptions.HTTPError as e:
+        logger.error(f"HTTP error during static scrape for {url}: {e}")
+        return {"error": f"HTTP error: {e.response.status_code} - {e.response.reason}", "url": url}
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Request error during static scrape for {url}: {e}")
+        return {"error": f"Request error: {str(e)}", "url": url}
+    except Exception as e:
+        logger.error(f"Unexpected error during static scrape for {url}: {e}", exc_info=True)
+        return {"error": f"An unexpected error occurred: {str(e)}", "url": url}
 
 app = FastAPI()
 
@@ -36,6 +77,22 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# --- Determine static files path (for bundled app) ---
+def get_static_folder_path():
+    if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
+        # Running in a PyInstaller bundle (onefile)
+        return os.path.join(sys._MEIPASS, 'static_frontend')
+    elif getattr(sys, 'frozen', False):
+        # Running in a PyInstaller bundle (onedir)
+        return os.path.join(os.path.dirname(sys.executable), 'static_frontend')
+    else:
+        # Running as a script
+        return os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'front-end-react', 'dist')
+
+STATIC_FILES_DIR = get_static_folder_path()
+INDEX_HTML_PATH = os.path.join(STATIC_FILES_DIR, "index.html")
+
 
 # --- Pydantic Models for Logging ---
 class LogPathPayload(BaseModel):
@@ -328,7 +385,7 @@ async def stop_interactive_browser(payload: InteractiveStopPayload):
 # --- Modified Scraper Endpoints with Logging ---
 @app.get("/scrape")
 async def scrape(url: str):
-    print(f"Received scrape request for URL: {url}")
+    logger.info(f"Received scrape request for URL: {url}")
     log_payload = {
         "scrapeType": "Static",
         "targetUrl": url,
@@ -368,7 +425,7 @@ async def scrape(url: str):
     except HTTPException: # Re-raise if it's an HTTPException (e.g., from our check above)
         raise
     except Exception as e: # Catch other unexpected errors
-        print(f"Unexpected error during static scraping: {e}")
+        logger.error(f"Unexpected error during static scraping for {url}: {e}", exc_info=True)
         log_payload["status"] = "Failed"
         log_payload["errorMessage"] = str(e)
         actual_scraped_data = {"error": f"Unexpected server error: {str(e)}"} # Ensure error is logged
@@ -435,7 +492,7 @@ async def scrape_dynamic(payload: DynamicScrapePayload):
         if error_message_from_scraper:
             log_payload["status"] = "Failed"
             log_payload["errorMessage"] = error_message_from_scraper
-            print(f"Dynamic scraping for {payload.url} failed with error: {error_message_from_scraper}")
+            logger.warning(f"Dynamic scraping for {payload.url} failed with error: {error_message_from_scraper}")
             status_code = 500
             if "invalid argument" in error_message_from_scraper.lower() or "timeout" in error_message_from_scraper.lower():
                 status_code = 400
@@ -456,7 +513,7 @@ async def scrape_dynamic(payload: DynamicScrapePayload):
         if not get_scraper_status() and log_payload["status"] != "Failed":
             log_payload["status"] = "Cancelled"
             operation_status = "cancelled"
-            print(f"Dynamic scraping for {payload.url} was cancelled by explicit stop signal.")
+            logger.info(f"Dynamic scraping for {payload.url} was cancelled by explicit stop signal.")
         
         if log_payload["status"] == "Pending":
              log_payload["status"] = "Success"
@@ -469,7 +526,7 @@ async def scrape_dynamic(payload: DynamicScrapePayload):
             log_payload["errorMessage"] = http_exc.detail
         raise
     except Exception as e:
-        print(f"Unexpected error during dynamic scraping endpoint: {e}")
+        logger.error(f"Unexpected error during dynamic scraping endpoint for {payload.url}: {e}", exc_info=True)
         log_payload["status"] = "Failed"
         log_payload["errorMessage"] = str(e)
         actual_scraped_results = []
@@ -485,6 +542,58 @@ async def stop_scraper_endpoint():
     # Log this attempt? Maybe not, as it's an action, not a scrape result.
     return {"status": "stop signal sent"}
 
+# --- Serve Static Frontend ---
+# Serve static assets (js, css, images, etc.)
+# The path "/assets" here must match the base path used in your index.html for assets
+# If Vite builds assets to `front-end-react/dist/assets`, then this should work.
+# Check your `front-end-react/dist/index.html` to see how asset paths are referenced.
+# If they are relative like "./assets/...", then this mount path might need adjustment
+# or your index.html might need to be served differently.
+# Common setup is that index.html uses absolute paths like /assets/file.js
+if os.path.exists(os.path.join(STATIC_FILES_DIR, "assets")):
+    app.mount("/assets", StaticFiles(directory=os.path.join(STATIC_FILES_DIR, "assets")), name="static-assets")
+else:
+    logger.warning(f"Frontend assets directory not found at {os.path.join(STATIC_FILES_DIR, 'assets')}. Static assets may not load.")
+
+# Serve other static files from the root of static_frontend (e.g., favicon.ico, manifest.json)
+# This loop will mount any top-level files and directories (excluding 'assets' and 'index.html')
+if os.path.exists(STATIC_FILES_DIR):
+    for item in os.listdir(STATIC_FILES_DIR):
+        item_path = os.path.join(STATIC_FILES_DIR, item)
+        if os.path.isfile(item_path) and item != "index.html":
+            app.mount(f"/{item}", StaticFiles(directory=STATIC_FILES_DIR, html=True, check_dir=False), name=f"static-root-{item.split('.')[0]}")
+            logger.info(f"Mounted static file: /{item}")
+        # If you have other top-level directories with static content (besides 'assets'), mount them similarly.
+
+@app.get("/{full_path:path}", response_class=FileResponse, include_in_schema=False)
+async def serve_react_app(full_path: str):
+    """
+    Serves the index.html for any path not caught by other routes.
+    This is crucial for client-side routing in React.
+    """
+    if os.path.exists(INDEX_HTML_PATH):
+        return FileResponse(INDEX_HTML_PATH)
+    else:
+        logger.error(f"Frontend index.html not found at {INDEX_HTML_PATH}")
+        raise HTTPException(status_code=404, detail="Frontend not found. Please build the frontend.")
+
+
+def open_browser():
+    """Opens the default web browser to the application's URL."""
+    # Wait a couple of seconds for the server to be ready
+    import time
+    time.sleep(2) 
+    webbrowser.open("http://localhost:8000")
+
 if __name__ == "__main__":
     import uvicorn
+    # Start the browser opening in a separate thread so it doesn't block Uvicorn
+    # Only do this if not running in a way that Uvicorn's reload or multiple workers are active
+    # For a frozen app, this should be fine.
+    if not os.environ.get("UVICORN_RELOAD") and not os.environ.get("UVICORN_WORKERS"):
+         # Check if we are likely the main process of a frozen app
+        is_frozen_main_process = getattr(sys, 'frozen', False)
+        if is_frozen_main_process: # Only open browser if frozen
+            threading.Thread(target=open_browser, daemon=True).start()
+
     uvicorn.run(app, host="0.0.0.0", port=8000)
