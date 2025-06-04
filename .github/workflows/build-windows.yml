@@ -1,0 +1,101 @@
+name: Build Windows Executable
+
+# Controls when the workflow will run
+on:
+  push:
+    branches: [ windows-download-exe ] # Workflow triggers on pushes to this branch
+  workflow_dispatch: # Allows you to run this workflow manually from the Actions tab
+
+jobs:
+  build-windows:
+    name: Build Python App for Windows
+    runs-on: windows-latest # Use a Windows runner
+
+    # Default working directory for 'run' steps
+    defaults:
+      run:
+        working-directory: ./backend-web-scrapper
+
+    steps:
+      # Step 1: Check out the repository code
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        # This action checks out your repository under $GITHUB_WORKSPACE, so your files are available.
+
+      # Step 2: Set up Python 3.11
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11' # Specify Python version
+          cache: 'pip' # Cache pip dependencies
+
+      # Step 3: Install project dependencies
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+        # Installs packages listed in requirements.txt located in ./backend-web-scrapper
+
+      # Step 4: Install PyInstaller
+      - name: Install PyInstaller
+        # Install PyInstaller separately, as it's a build tool
+        run: python -m pip install pyinstaller
+        working-directory: ${{ github.workspace }} # Run from workspace root for global tools
+
+      # Step 5: Download and set up ChromeDriver
+      - name: Download and set up ChromeDriver
+        shell: pwsh # Use PowerShell for robust scripting on Windows
+        run: |
+          $chromeDriverTargetDir = "${{ github.workspace }}/backend-web-scrapper/drivers"
+          # Ensure the target directory exists
+          if (-not (Test-Path $chromeDriverTargetDir)) {
+            New-Item -ItemType Directory -Force -Path $chromeDriverTargetDir | Out-Null
+            Write-Host "Created directory: $chromeDriverTargetDir"
+          } else {
+            Write-Host "Directory already exists: $chromeDriverTargetDir"
+          }
+          
+          $chromeZipUrl = "https://storage.googleapis.com/chrome-for-testing-public/137.0.7151.68/win64/chrome-win64.zip"
+          $zipPath = Join-Path $env:TEMP "chrome-win64.zip"
+          $extractPath = Join-Path $env:TEMP "chrome_extract"
+          
+          Write-Host "Downloading Chrome for Testing from $chromeZipUrl to $zipPath..."
+          Invoke-WebRequest -Uri $chromeZipUrl -OutFile $zipPath
+          Write-Host "Download complete."
+          
+          Write-Host "Extracting chromedriver.exe from $zipPath to $extractPath..."
+          Expand-Archive -Path $zipPath -DestinationPath $extractPath -Force
+          
+          # Path to chromedriver.exe within the extracted files
+          $chromeDriverInZipPath = Join-Path $extractPath "chrome-win64/chromedriver.exe" # Assumes this structure inside the zip
+          $finalChromeDriverPath = Join-Path $chromeDriverTargetDir "chromedriver.exe"
+
+          if (Test-Path $chromeDriverInZipPath) {
+            Copy-Item -Path $chromeDriverInZipPath -Destination $finalChromeDriverPath -Force
+            Write-Host "chromedriver.exe placed in $finalChromeDriverPath"
+          } else {
+            Write-Error "chromedriver.exe not found at $chromeDriverInZipPath after extraction. Please check zip structure."
+            exit 1
+          }
+          
+          # Clean up downloaded zip and extracted files
+          Write-Host "Cleaning up temporary files..."
+          Remove-Item $zipPath -Force -ErrorAction SilentlyContinue
+          Remove-Item $extractPath -Recurse -Force -ErrorAction SilentlyContinue
+          Write-Host "Cleanup complete."
+        working-directory: ${{ github.workspace }} # Run from workspace root
+
+      # Step 6: Build executable with PyInstaller
+      - name: Build executable with PyInstaller
+        run: pyinstaller web_scraper_backend.spec
+        # This command runs from ./backend-web-scrapper
+        # It uses web_scraper_backend.spec to create the executable.
+        # Output will be in ./backend-web-scrapper/dist/
+
+      # Step 7: Upload the executable as an artifact
+      - name: Upload Windows executable artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: web_scraper_windows_exe # Name of the artifact
+          path: backend-web-scrapper/dist/ # Path to the folder to upload (relative to GITHUB_WORKSPACE)
+          if-no-files-found: error # Fail the workflow if 'dist' folder is empty or not found
