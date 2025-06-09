@@ -1,1 +1,1 @@
-/Volumes/ALI-ssd/testing-logs
+/Volumes/ALI-ssd/web-scrapper
