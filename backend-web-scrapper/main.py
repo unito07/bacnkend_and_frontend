@@ -18,6 +18,9 @@ from bs4 import BeautifulSoup # Added for static scraping
 
 from dynamic_web_scrapper import DynamicWebScraper, scrape_dynamic_data, scrape_dynamic_with_pagination, set_scraper_status, get_scraper_status # Removed scrape_data
 import log_manager # Import the new log manager
+import keygen_service # Import the new keygen service
+import activation_service # Import the new activation service
+import asyncio # Ensure asyncio is imported for to_thread
 
 # Configure logging for main.py
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -195,6 +198,29 @@ class InteractiveStartPayload(BaseModel):
     start_url: Optional[str] = None
     user_data_dir: Optional[str] = None
     profile_directory: Optional[str] = None
+
+# --- Pydantic Models for Enhanced License Activation ---
+class LicenseActivateRequest(BaseModel):
+    license_key: str
+    machine_fingerprint: str
+
+class LicenseActivationResponse(BaseModel): # Renamed from LicenseValidationResponse
+    activated: bool # Changed from 'valid' to 'activated' for clarity
+    message: Optional[str] = None
+    error: Optional[str] = None
+    error_code: Optional[str] = None # From Keygen if applicable
+    license_details: Optional[Dict[str, Any]] = None # Details from Keygen about the license
+    activation_record: Optional[Dict[str, Any]] = None # Details from local DB record
+
+class LicenseStatusRequest(BaseModel):
+    machine_fingerprint: str
+
+class LicenseStatusResponse(BaseModel):
+    is_active: bool
+    message: Optional[str] = None
+    license_key_hint: Optional[str] = None # e.g., last 4 chars of activated key
+    # Potentially add more details from the stored activation record if needed
+
 
 class InteractiveStartResponse(BaseModel):
     success: bool
@@ -380,6 +406,150 @@ async def stop_interactive_browser(payload: InteractiveStopPayload):
         logger.error(f"Error stopping interactive browser session {session_id}: {e}")
         # Even if quit fails, the session is removed from our tracking.
         return InteractiveStopResponse(success=False, message=f"Error stopping browser session: {e}")
+
+# --- Enhanced License Activation Endpoints ---
+
+@app.post("/api/v1/license/activate", response_model=LicenseActivationResponse, summary="Activate License Key for a Machine")
+async def activate_license(payload: LicenseActivateRequest):
+    logger.info(f"Received license activation request for key: {payload.license_key[:4]}..., fingerprint: {payload.machine_fingerprint[:8]}...")
+
+    if not payload.license_key or not payload.license_key.strip():
+        logger.warning("Activation attempt with empty license key.")
+        raise HTTPException(status_code=400, detail="License key cannot be empty.")
+    if not payload.machine_fingerprint or not payload.machine_fingerprint.strip():
+        logger.warning("Activation attempt with empty machine fingerprint.")
+        raise HTTPException(status_code=400, detail="Machine fingerprint cannot be empty.")
+
+    # 1. Validate the license key with Keygen.sh
+    # As noted before, keygen_service.validate_license_key uses sync `requests` inside async def.
+    # This should be refactored in keygen_service.py or called with to_thread if it were sync.
+    # For now, direct await, acknowledging the blocking nature.
+    # Pass the machine_fingerprint to Keygen for scoped validation
+    keygen_validation_result = await keygen_service.validate_license_key(
+        license_key=payload.license_key,
+        fingerprint=payload.machine_fingerprint
+    )
+
+    if not keygen_validation_result.get("valid"):
+        error_message = keygen_validation_result.get("error", "License key validation failed with Keygen.")
+        error_code = keygen_validation_result.get("error_code")
+        logger.warning(f"Keygen validation failed for key {payload.license_key[:4]}...: {error_message} (Code: {error_code})")
+        # Return a 200 OK response with activated: false, and details from Keygen
+        return LicenseActivationResponse(
+            activated=False,
+            error=error_message,
+            error_code=error_code,
+            license_details=keygen_validation_result.get("meta") # Keygen's meta often has useful failure details
+        )
+
+    # 2. If Keygen validation is successful, store/update the activation in the local DB
+    license_data_from_keygen = keygen_validation_result.get("data", {}) # This is the license object from Keygen
+    license_id_from_keygen = license_data_from_keygen.get("id")
+    
+    # Extract expiry from Keygen's license data if available
+    # Keygen license object usually has an 'expiry' attribute or similar in `attributes`.
+    # Example: license_data_from_keygen.get("attributes", {}).get("expiry")
+    # This needs to match the actual structure of Keygen's license object.
+    # For now, assuming it might be in `license_data_from_keygen.get("attributes", {}).get("expiry")`
+    # or `license_data_from_keygen.get("expiry")`
+    # Let's assume `keygen_validation_result.meta.expiry` or `keygen_validation_result.data.attributes.expiry`
+    # For simplicity, we'll pass None for now if not easily found.
+    # A more robust way would be to inspect the actual Keygen license object structure.
+    # Keygen's `meta` usually contains `ts` (timestamp of validation), `code`, `detail`, `valid`.
+    # The actual license object is in `data`.
+    # `data.attributes.expiry` is a common pattern.
+    # Also, Keygen might return `scope` in `meta` if fingerprint was used, e.g., `meta.scope.fingerprint`
+    keygen_license_attributes = license_data_from_keygen.get("attributes", {})
+    expires_at_str = keygen_license_attributes.get("expiry") # This should be an ISO 8601 string if present
+
+    # Use asyncio.to_thread for database operations as they are blocking
+    success_storing = await asyncio.to_thread(
+        activation_service.store_activation,
+        machine_fingerprint=payload.machine_fingerprint,
+        license_key=payload.license_key,
+        license_id_from_keygen=license_id_from_keygen,
+        expires_at=expires_at_str, # Pass expiry if found
+        metadata=license_data_from_keygen # Store the whole Keygen license object as metadata
+    )
+
+    if not success_storing:
+        logger.error(f"Failed to store activation record for fingerprint {payload.machine_fingerprint[:8]}... after successful Keygen validation.")
+        # Keygen validation was OK, but local DB failed. This is a server-side issue.
+        raise HTTPException(status_code=500, detail="Activation successful with provider, but failed to save record locally.")
+
+    logger.info(f"License key {payload.license_key[:4]}... successfully activated for fingerprint {payload.machine_fingerprint[:8]}...")
+    
+    # Retrieve the newly stored/updated record to return it
+    activation_record = await asyncio.to_thread(activation_service.get_activation_by_fingerprint, payload.machine_fingerprint)
+
+    return LicenseActivationResponse(
+        activated=True,
+        message="License activated successfully.",
+        license_details=license_data_from_keygen, # Send back the full license details from Keygen
+        activation_record=activation_record # Send back the local DB record
+    )
+
+
+@app.post("/api/v1/license/status", response_model=LicenseStatusResponse, summary="Check Machine Activation Status")
+async def check_license_status(payload: LicenseStatusRequest):
+    logger.info(f"Received license status check for fingerprint: {payload.machine_fingerprint[:8]}...")
+    if not payload.machine_fingerprint or not payload.machine_fingerprint.strip():
+        logger.warning("License status check with empty machine fingerprint.")
+        raise HTTPException(status_code=400, detail="Machine fingerprint cannot be empty.")
+
+    # Use asyncio.to_thread for database operations
+    is_active, activation_record = await asyncio.to_thread(
+        activation_service.is_machine_activated,
+        payload.machine_fingerprint
+    )
+    
+    # Optional: Implement periodic re-validation with Keygen.sh here
+    # For example, if `activation_record.last_validated_at` is older than X days,
+    # re-validate `activation_record.license_key` with `keygen_service.validate_license_key`.
+    # If it fails (e.g., revoked, expired on Keygen's side), then update local DB and set is_active = False.
+    # This is an advanced step not implemented for brevity here.
+
+    # --- ENHANCEMENT: Re-validate with Keygen.sh on status check ---
+    if is_active and activation_record:
+        stored_license_key = activation_record.get("license_key")
+        if stored_license_key:
+            logger.info(f"Re-validating license {stored_license_key[:4]}... for fingerprint {payload.machine_fingerprint[:8]}... with Keygen.")
+            keygen_revalidation_result = await keygen_service.validate_license_key(
+                license_key=stored_license_key,
+                fingerprint=payload.machine_fingerprint
+            )
+
+            if not keygen_revalidation_result.get("valid"):
+                logger.warning(f"Keygen re-validation failed for active local record. License: {stored_license_key[:4]}..., Fingerprint: {payload.machine_fingerprint[:8]}.... Error: {keygen_revalidation_result.get('error_code')} - {keygen_revalidation_result.get('error')}")
+                # License is no longer valid according to Keygen, update local DB
+                await asyncio.to_thread(
+                    activation_service.deactivate_machine, # Assuming such a function exists or we mark it inactive
+                    payload.machine_fingerprint
+                )
+                return LicenseStatusResponse(
+                    is_active=False,
+                    message=f"License no longer valid: {keygen_revalidation_result.get('error', 'Validation failed with Keygen.')} (Code: {keygen_revalidation_result.get('error_code')})"
+                )
+            else:
+                logger.info(f"Keygen re-validation successful for license {stored_license_key[:4]}..., fingerprint {payload.machine_fingerprint[:8]}...")
+                # Optionally, update a 'last_validated_at_keygen' timestamp in the local DB here.
+                # For now, just confirm it's still active.
+                return LicenseStatusResponse(
+                    is_active=True,
+                    message="Machine is activated and license is current with Keygen.",
+                    license_key_hint=f"...{stored_license_key[-4:]}"
+                )
+        else:
+            # Should not happen if record is active, but handle defensively
+            logger.error(f"Active record found for fingerprint {payload.machine_fingerprint[:8]} but no license key stored.")
+            return LicenseStatusResponse(is_active=False, message="Activation record inconsistent (missing key).")
+            
+    # Original logic for when not initially active or no record found
+    logger.info(f"Fingerprint {payload.machine_fingerprint[:8]}... is not active based on initial local check or re-validation failure.")
+    message = "Machine not activated."
+    if activation_record and not is_active: # Record exists but was deemed inactive (e.g. expired locally)
+        message = "License previously activated but may have expired or changed."
+    return LicenseStatusResponse(is_active=False, message=message)
 
 
 # --- Modified Scraper Endpoints with Logging ---
