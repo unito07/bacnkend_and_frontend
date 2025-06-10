@@ -1,0 +1,155 @@
+# GitHub Actions Workflow for Building Windows Executable
+#
+# Why this workflow exists:
+# 1. Automates the build of a Windows .exe for the Python application.
+# 2. Enables building from a macOS (or any other OS) developer environment using GitHub-hosted Windows runners.
+# 3. Stores the built executable as a downloadable artifact.
+# 4. Provides a scalable CI/CD foundation for future enhancements like code signing and release packaging.
+
+name: Build Windows Executable with Licenses (windows-licenses.yml)
+
+# Controls when the workflow will run
+on:
+  # Triggers the workflow on push events but only for the makingfile branch
+  push:
+    branches: [ makingfile ]
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    name: Build Python App for Windows with Licenses
+    runs-on: windows-latest # Use a GitHub-hosted Windows runner
+    env:
+      CHROME_ZIP_URL: "https://storage.googleapis.com/chrome-for-testing-public/137.0.7151.68/win64/chrome-win64.zip"
+
+    defaults:
+      run:
+        shell: bash # Prefer bash for consistency, though some steps might use powershell
+
+    steps:
+      # Step 1: Check out the repository code
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      # Step 1.5: Clean workspace before build
+      - name: Clean workspace
+        run: |
+          git clean -xdf
+        # -x: Remove ignored files too
+        # -d: Remove directories
+        # -f: Force (required if clean.requireForce is not false)
+
+      # Step 2: Set up Python environment
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip' # Cache pip dependencies
+
+      # Step 2.5: Build React frontend
+      - name: Build React frontend
+        run: |
+          echo "Building React frontend..."
+          cd front-end-react
+          npm ci
+          npm run build
+          echo "React frontend build complete. 'dist' folder should now exist in front-end-react."
+        # This ensures front-end-react/dist is available for PyInstaller
+      
+      # Step 2.6: Create .env file for backend
+      # IMPORTANT: Ensure KEYGEN_PRODUCT_TOKEN_SECRET and KEYGEN_ACCOUNT_ID_SECRET are set in GitHub repo secrets
+      - name: Create .env file for backend
+        run: |
+          echo "Creating .env file in backend-web-scrapper..."
+          echo "KEYGEN_PRODUCT_TOKEN=${{ secrets.KEYGEN_PRODUCT_TOKEN_SECRET }}" > backend-web-scrapper/.env
+          echo "KEYGEN_ACCOUNT_ID=${{ secrets.KEYGEN_ACCOUNT_ID_SECRET }}" >> backend-web-scrapper/.env
+          echo ".env file created."
+        shell: bash
+
+      # Step 3 & 5 combined: Create venv, install dependencies (including PyInstaller), and build
+      - name: Create venv, Install Deps, and Build with PyInstaller
+        shell: cmd # Using cmd for reliable venv activation on Windows
+        run: |
+          echo "Setting up virtual environment and installing dependencies..."
+          python -m venv venv
+          call venv\Scripts\activate
+          python -m pip install --upgrade pip
+          pip install -r backend-web-scrapper/requirements.txt
+          pip install pyinstaller
+          echo "Dependencies installed. Starting PyInstaller build..."
+          cd backend-web-scrapper
+          echo "Listing files in backend-web-scrapper directory (should include .env):"
+          dir
+          echo "Attempting to build from main.py with command-line arguments..."
+          pyinstaller --noconfirm --clean main.py ^
+            --name web_scraper_backend ^
+            --console ^
+            --add-data "log_folder_config.txt:." ^
+            --add-data "../front-end-react/dist:static_frontend" ^
+            --add-data "../venv/Lib/site-packages/selenium_stealth/js:selenium_stealth/js" ^
+            --add-data ".env:." ^
+            --hidden-import="asyncio" ^
+            --hidden-import="logging" ^
+            --hidden-import="uuid" ^
+            --hidden-import="pathlib" ^
+            --hidden-import="pytz" ^
+            --hidden-import="charset_normalizer" ^
+            --hidden-import="multipart.exceptions" ^
+            --hidden-import="json" ^
+            --hidden-import="uvicorn" ^
+            --hidden-import="uvicorn.config" ^
+            --hidden-import="typing_extensions" ^
+            --hidden-import="pydantic_core" ^
+            --hidden-import="fastapi" ^
+            --hidden-import="fastapi.main" ^
+            --hidden-import="starlette" ^
+            --hidden-import="starlette.applications" ^
+            --hidden-import="pydantic" ^
+            --hidden-import="pandas" ^
+            --hidden-import="selenium" ^
+            --hidden-import="selenium.webdriver.common.service" ^
+            --hidden-import="selenium.webdriver.remote.remote_connection" ^
+            --hidden-import="selenium.webdriver.chrome.options" ^
+            --hidden-import="selenium_stealth" ^
+            --hidden-import="requests" ^
+            --hidden-import="bs4"
+          echo "PyInstaller build finished."
+        # The output (dist folder) will be in backend-web-scrapper/dist/
+        # Note: Using ^ for line continuation in cmd.exe shell
+
+      # Step 4: Cache and Set Up ChromeDriver (Remains largely the same, just re-numbered logic)
+      - name: Cache ChromeDriver
+        id: cache-chromedriver
+        uses: actions/cache@v4
+        with:
+          path: chrome-win64.zip
+          key: ${{ runner.os }}-chromedriver-${{ env.CHROME_ZIP_URL }}
+          restore-keys: |
+            ${{ runner.os }}-chromedriver-
+      - name: Download and Set up ChromeDriver
+        shell: pwsh
+        env:
+          CACHE_HIT: ${{ steps.cache-chromedriver.outputs.cache-hit }}
+        run: |
+          echo "Start ChromeDriver Setup: $(Get-Date -Format s)"
+          if ($env:CACHE_HIT -ne 'true') {
+            echo "Cache miss for ChromeDriver. Downloading..."
+            Invoke-WebRequest -Uri "${{ env.CHROME_ZIP_URL }}" -OutFile chrome-win64.zip
+          } else {
+            echo "ChromeDriver cache hit. Skipping download."
+          }
+          Expand-Archive -Path chrome-win64.zip -DestinationPath ./
+          $ChromedriverPath = Join-Path -Path $env:GITHUB_WORKSPACE -ChildPath "chrome-win64/chrome-win64"
+          echo "Adding to PATH: $ChromedriverPath"
+          echo "$ChromedriverPath" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          chromedriver --version
+          echo "End ChromeDriver Setup: $(Get-Date -Format s)"
+      # Step 6: Upload the built executable as an artifact
+      # This makes the dist/ folder available for download from the GitHub Actions run page.
+      - name: Upload Windows Executable Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: web_scraper_windows_exe_with_licenses # Name of the artifact
+          path: backend-web-scrapper/dist/ # Path to the folder to upload
+          if-no-files-found: error # Fail the step if dist/ is empty or not found.
