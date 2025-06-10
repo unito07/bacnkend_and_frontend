@@ -1,12 +1,32 @@
 import os
+import sys # Added for PyInstaller path
 import requests
 import logging
 import asyncio # Added for to_thread
 from dotenv import load_dotenv
 from typing import Optional
 
-# Load environment variables from .env file
-load_dotenv()
+# Determine the base path for resources, accommodating PyInstaller
+if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
+    # Running in a PyInstaller bundle
+    base_path = sys._MEIPASS
+else:
+    # Running in a normal Python environment
+    base_path = os.path.dirname(os.path.abspath(__file__))
+
+# Construct the path to the .env file
+dotenv_path = os.path.join(base_path, '.env')
+
+# Load environment variables from .env file, explicitly providing the path
+if os.path.exists(dotenv_path):
+    load_dotenv(dotenv_path=dotenv_path)
+    # print(f"Loaded .env from: {dotenv_path}") # For debugging
+else:
+    # print(f".env file not found at: {dotenv_path}") # For debugging
+    # Fallback to default load_dotenv behavior if .env is not found at the constructed path
+    # This might pick up an .env file from the current working directory if the app is run from there.
+    load_dotenv()
+
 
 logger = logging.getLogger(__name__)
 
