@@ -81,39 +81,8 @@ jobs:
           cd backend-web-scrapper
           echo "Listing files in backend-web-scrapper directory (should include .env):"
           dir
-          echo "Attempting to build from main.py with command-line arguments..."
-          pyinstaller --noconfirm --clean main.py ^
-            --name web_scraper_backend ^
-            --console ^
-            --add-data "log_folder_config.txt:." ^
-            --add-data "../front-end-react/dist:static_frontend" ^
-            --add-data "../venv/Lib/site-packages/selenium_stealth/js:selenium_stealth/js" ^
-            --add-data ".env:." ^
-            --hidden-import="asyncio" ^
-            --hidden-import="logging" ^
-            --hidden-import="uuid" ^
-            --hidden-import="pathlib" ^
-            --hidden-import="pytz" ^
-            --hidden-import="charset_normalizer" ^
-            --hidden-import="multipart.exceptions" ^
-            --hidden-import="json" ^
-            --hidden-import="uvicorn" ^
-            --hidden-import="uvicorn.config" ^
-            --hidden-import="typing_extensions" ^
-            --hidden-import="pydantic_core" ^
-            --hidden-import="fastapi" ^
-            --hidden-import="fastapi.main" ^
-            --hidden-import="starlette" ^
-            --hidden-import="starlette.applications" ^
-            --hidden-import="pydantic" ^
-            --hidden-import="pandas" ^
-            --hidden-import="selenium" ^
-            --hidden-import="selenium.webdriver.common.service" ^
-            --hidden-import="selenium.webdriver.remote.remote_connection" ^
-            --hidden-import="selenium.webdriver.chrome.options" ^
-            --hidden-import="selenium_stealth" ^
-            --hidden-import="requests" ^
-            --hidden-import="bs4"
+          echo "Attempting to build using web_scraper_backend.spec..."
+          pyinstaller --noconfirm --clean web_scraper_backend.spec
           echo "PyInstaller build finished."
         # The output (dist folder) will be in backend-web-scrapper/dist/
         # Note: Using ^ for line continuation in cmd.exe shell
