@@ -81,8 +81,8 @@ jobs:
           cd backend-web-scrapper
           echo "Listing files in backend-web-scrapper directory (should include .env):"
           dir
-          echo "Attempting to build using web_scraper_backend.spec..."
-          pyinstaller --noconfirm --clean web_scraper_backend.spec
+          echo "Attempting to build using web-scrapper-builder.spec..."
+          pyinstaller --noconfirm --clean web-scrapper-builder.spec
           echo "PyInstaller build finished."
         # The output (dist folder) will be in backend-web-scrapper/dist/
         # Note: Using ^ for line continuation in cmd.exe shell
