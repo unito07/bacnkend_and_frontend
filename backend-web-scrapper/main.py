@@ -1,3 +1,4 @@
+print("[DEBUG] THIS IS THE CORRECT main.py")
 # --- Environment Variable Loading (should be at the very top) ---
 import os
 import sys
