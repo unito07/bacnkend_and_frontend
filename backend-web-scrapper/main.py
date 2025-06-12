@@ -7,6 +7,11 @@ from dotenv import load_dotenv
 if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
     # Running in a PyInstaller bundle, .env is at the root of _MEIPASS
     env_path = os.path.join(sys._MEIPASS, '.env') # Corrected path for frozen app
+    # Runtime debug for --onefile build to list contents of _MEIPASS
+    try:
+        print("[DEBUG] Files in _MEIPASS:", os.listdir(sys._MEIPASS))
+    except Exception as e:
+        print(f"[DEBUG] Error listing files in _MEIPASS: {e}")
 else:
     # Running as a script, .env is in the same directory as main.py (backend-web-scrapper)
     env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env')
