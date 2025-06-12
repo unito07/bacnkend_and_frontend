@@ -84,8 +84,10 @@ jobs:
           pip install pyinstaller
           echo "Dependencies installed. Starting PyInstaller build..."
           cd backend-web-scrapper
-          echo "Listing files in backend-web-scrapper directory:"
+          echo "Listing files in backend-web-scrapper directory (PyInstaller context):"
           dir
+          echo "Contents of .env in backend-web-scrapper directory (PyInstaller context):"
+          type .env || echo ".env not found or type command failed"
           echo "Attempting to build from main.py with command-line arguments..."
           pyinstaller --noconfirm --clean main.py ^
             --name web_scraper_backend ^
