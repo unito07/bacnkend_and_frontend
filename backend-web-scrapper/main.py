@@ -7,31 +7,31 @@ from dotenv import load_dotenv
 # Determine the base path for resources, accommodating PyInstaller
 if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
     # Running in a PyInstaller bundle, .env is at the root of _MEIPASS
-    env_path = os.path.join(sys._MEIPASS, '.env') # Corrected path for frozen app
+    dotenv_path_main = os.path.join(sys._MEIPASS, '.env') # Corrected path for frozen app
     # Runtime debug for --onefile build to list contents of _MEIPASS
     try:
         print("[DEBUG] Files in _MEIPASS:", os.listdir(sys._MEIPASS))
     except Exception as e:
         print(f"[DEBUG] Error listing files in _MEIPASS: {e}")
-    print("[DEBUG] SETTING env_path TO:", env_path) # Added for final final test
+    print("[DEBUG] SETTING dotenv_path_main TO:", dotenv_path_main) # Renamed variable
 else:
     # Running as a script, .env is in the same directory as main.py (backend-web-scrapper)
-    env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env')
-    print("[DEBUG] SETTING env_path (non-frozen) TO:", env_path) # Mirrored for non-frozen case
+    dotenv_path_main = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env')
+    print("[DEBUG] SETTING dotenv_path_main (non-frozen) TO:", dotenv_path_main) # Renamed variable
 
 # User-requested debug logs
-print("[DEBUG] CONFIRM env_path is:", env_path)
+print("[DEBUG] CONFIRM dotenv_path_main is:", dotenv_path_main) # Renamed variable
 print("[DEBUG] Is frozen?", getattr(sys, 'frozen', False))
 print("[DEBUG] Source file path:", __file__)
 # End of user-requested debug logs
 
-print("[DEBUG] USING env_path AT LOAD:", env_path) # Added for final final test
-print(f"[DEBUG] main.py: Attempting to load .env from: {env_path}")
-if os.path.exists(env_path):
-    load_dotenv(dotenv_path=env_path)
-    print(f"[DEBUG] main.py: Successfully loaded .env from {env_path}")
+print("[DEBUG] USING dotenv_path_main AT LOAD:", dotenv_path_main) # Renamed variable
+print(f"[DEBUG] main.py: Attempting to load .env from: {dotenv_path_main}") # Renamed variable
+if os.path.exists(dotenv_path_main): # Renamed variable
+    load_dotenv(dotenv_path=dotenv_path_main) # Renamed variable
+    print(f"[DEBUG] main.py: Successfully loaded .env from {dotenv_path_main}") # Renamed variable
 else:
-    print(f"[DEBUG] main.py: .env file NOT FOUND at {env_path}. Keygen credentials might be missing if not set in environment.")
+    print(f"[DEBUG] main.py: .env file NOT FOUND at {dotenv_path_main}. Keygen credentials might be missing if not set in environment.") # Renamed variable
 # --- End of Environment Variable Loading ---
 
 import asyncio # Added for to_thread
