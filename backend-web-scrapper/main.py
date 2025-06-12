@@ -6,8 +6,7 @@ from dotenv import load_dotenv
 # Determine the base path for resources, accommodating PyInstaller
 if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
     # Running in a PyInstaller bundle, .env is at the root of _MEIPASS
-    # This path is relative to where PyInstaller unpacks files.
-    env_path = os.path.join(sys._MEIPASS, '.env')
+    env_path = os.path.join(sys._MEIPASS, '.env') # Corrected path for frozen app
 else:
     # Running as a script, .env is in the same directory as main.py (backend-web-scrapper)
     env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env')
