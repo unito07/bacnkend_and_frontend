@@ -13,9 +13,11 @@ if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
         print("[DEBUG] Files in _MEIPASS:", os.listdir(sys._MEIPASS))
     except Exception as e:
         print(f"[DEBUG] Error listing files in _MEIPASS: {e}")
+    print("[DEBUG] SETTING env_path TO:", env_path) # Added for final final test
 else:
     # Running as a script, .env is in the same directory as main.py (backend-web-scrapper)
     env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env')
+    print("[DEBUG] SETTING env_path (non-frozen) TO:", env_path) # Mirrored for non-frozen case
 
 # User-requested debug logs
 print("[DEBUG] CONFIRM env_path is:", env_path)
@@ -23,6 +25,7 @@ print("[DEBUG] Is frozen?", getattr(sys, 'frozen', False))
 print("[DEBUG] Source file path:", __file__)
 # End of user-requested debug logs
 
+print("[DEBUG] USING env_path AT LOAD:", env_path) # Added for final final test
 print(f"[DEBUG] main.py: Attempting to load .env from: {env_path}")
 if os.path.exists(env_path):
     load_dotenv(dotenv_path=env_path)
