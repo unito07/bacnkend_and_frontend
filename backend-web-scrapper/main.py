@@ -11,6 +11,12 @@ else:
     # Running as a script, .env is in the same directory as main.py (backend-web-scrapper)
     env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env')
 
+# User-requested debug logs
+print("[DEBUG] CONFIRM env_path is:", env_path)
+print("[DEBUG] Is frozen?", getattr(sys, 'frozen', False))
+print("[DEBUG] Source file path:", __file__)
+# End of user-requested debug logs
+
 print(f"[DEBUG] main.py: Attempting to load .env from: {env_path}")
 if os.path.exists(env_path):
     load_dotenv(dotenv_path=env_path)
