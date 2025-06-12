@@ -3,19 +3,10 @@ import sys # Added for PyInstaller path
 import requests
 import logging
 import asyncio # Added for to_thread
-from dotenv import load_dotenv
+from dotenv import load_dotenv # Though load_dotenv is no longer called here, other modules might use it.
 from typing import Optional
 
-# User-provided fix to ensure .env is loaded correctly, with debug output.
-if getattr(sys, 'frozen', False):
-    env_path = os.path.join(sys._MEIPASS, '.env')
-else:
-    env_path = os.path.join(os.path.dirname(__file__), '.env')
-
-print(f"[DEBUG] Loading .env from: {env_path}")
-load_dotenv(env_path)
-# End of user-provided fix.
-
+# .env loading is now handled in main.py to ensure it runs before any module-level getenv calls.
 
 logger = logging.getLogger(__name__)
 

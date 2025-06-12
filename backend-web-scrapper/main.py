@@ -1,3 +1,25 @@
+# --- Environment Variable Loading (should be at the very top) ---
+import os
+import sys
+from dotenv import load_dotenv
+
+# Determine the base path for resources, accommodating PyInstaller
+if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
+    # Running in a PyInstaller bundle, .env is at the root of _MEIPASS
+    # This path is relative to where PyInstaller unpacks files.
+    env_path = os.path.join(sys._MEIPASS, '.env')
+else:
+    # Running as a script, .env is in the same directory as main.py (backend-web-scrapper)
+    env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env')
+
+print(f"[DEBUG] main.py: Attempting to load .env from: {env_path}")
+if os.path.exists(env_path):
+    load_dotenv(dotenv_path=env_path)
+    print(f"[DEBUG] main.py: Successfully loaded .env from {env_path}")
+else:
+    print(f"[DEBUG] main.py: .env file NOT FOUND at {env_path}. Keygen credentials might be missing if not set in environment.")
+# --- End of Environment Variable Loading ---
+
 import asyncio # Added for to_thread
 from fastapi import FastAPI, HTTPException, Body
 from fastapi.middleware.cors import CORSMiddleware
