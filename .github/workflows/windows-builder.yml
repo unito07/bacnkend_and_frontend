@@ -92,10 +92,10 @@ jobs:
           pyinstaller --noconfirm --clean main.py ^
             --name web_scraper_backend ^
             --console ^
-            --add-data "log_folder_config.txt:." ^
-            --add-data "../front-end-react/dist:static_frontend" ^
-            --add-data "../venv/Lib/site-packages/selenium_stealth/js:selenium_stealth/js" ^
-            --add-data ".env:." ^
+            --add-data "log_folder_config.txt;." ^
+            --add-data "../front-end-react/dist;static_frontend" ^
+            --add-data "../venv/Lib/site-packages/selenium_stealth/js;selenium_stealth/js" ^
+            --add-data ".env;." ^
             --hidden-import="asyncio" ^
             --hidden-import="logging" ^
             --hidden-import="uuid" ^
