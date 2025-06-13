@@ -74,20 +74,19 @@ jobs:
 
       # Step 3: Build Windows Executable using .spec file
       - name: Build Windows Executable
+        working-directory: backend-web-scrapper # Set working directory for the entire step
         shell: cmd # Using cmd for reliable venv activation and PyInstaller on Windows
         run: |
-          echo "Setting up virtual environment and installing dependencies..."
+          echo "Current directory: %CD%"
+          echo "Setting up virtual environment (in %CD%) and installing dependencies..."
           python -m venv venv
           call venv\Scripts\activate
           python -m pip install --upgrade pip
-          pip install -r backend-web-scrapper/requirements.txt
+          pip install -r requirements.txt
           pip install pyinstaller
           echo "Dependencies installed."
           
-          echo "Changing to backend-web-scrapper directory..."
-          cd backend-web-scrapper
-          
-          echo "--- Listing files in backend-web-scrapper before build ---"
+          echo "--- Listing files in current directory (%CD%) before build ---"
           dir
           echo " "
           echo "--- Verifying .env presence and content ---"
