@@ -7,10 +7,10 @@ a = Analysis(
     pathex=[],
     binaries=[],
     datas=[
+        ('config.env', '.'),
         ('log_folder_config.txt', '.'),
         ('../front-end-react/dist', 'static_frontend'),
-        ('venv/Lib/site-packages/selenium_stealth/js', 'selenium_stealth/js'),
-        ('.env', '.')
+        ('venv/Lib/site-packages/selenium_stealth/js', 'selenium_stealth/js')
     ],
     hiddenimports=[],
     hookspath=[],

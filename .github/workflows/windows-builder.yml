@@ -57,19 +57,19 @@ jobs:
           echo "React frontend build complete. 'dist' folder should now exist in front-end-react."
         # This ensures front-end-react/dist is available for PyInstaller
 
-      # Step 2.6: Create .env file from secrets
-      - name: Create .env file
-        working-directory: backend-web-scrapper # Create .env in the backend directory
+      # Step 2.6: Create config.env file from secrets
+      - name: Create config.env file
+        working-directory: backend-web-scrapper # Create config.env in the backend directory
         env:
           KEYGEN_PRODUCT_TOKEN: ${{ secrets.KEYGEN_PRODUCT_TOKEN }}
           KEYGEN_ACCOUNT_ID: ${{ secrets.KEYGEN_ACCOUNT_ID }}
         run: |
-          echo "Creating .env file in $(pwd)..."
-          echo "KEYGEN_PRODUCT_TOKEN=${KEYGEN_PRODUCT_TOKEN}" > .env
-          echo "KEYGEN_ACCOUNT_ID=${KEYGEN_ACCOUNT_ID}" >> .env
-          echo ".env file created successfully."
-          echo "Contents of .env:"
-          cat .env
+          echo "Creating config.env file in $(pwd)..."
+          echo "KEYGEN_PRODUCT_TOKEN=${KEYGEN_PRODUCT_TOKEN}" > config.env
+          echo "KEYGEN_ACCOUNT_ID=${KEYGEN_ACCOUNT_ID}" >> config.env
+          echo "config.env file created successfully."
+          echo "Contents of config.env:"
+          cat config.env
         shell: bash
 
       # Step 3: Build Windows Executable using .spec file
@@ -89,8 +89,8 @@ jobs:
           echo "--- Listing files in current directory (%CD%) before build ---"
           dir
           echo " "
-          echo "--- Verifying .env presence and content ---"
-          type .env || echo ".env not found or type command failed"
+          echo "--- Verifying config.env presence and content ---"
+          type config.env || echo "config.env not found or type command failed"
           echo " "
           echo "--- Verifying main.spec presence and content ---"
           type main.spec || echo "main.spec not found or type command failed"
