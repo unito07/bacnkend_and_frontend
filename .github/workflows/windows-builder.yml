@@ -72,9 +72,9 @@ jobs:
           cat .env
         shell: bash
 
-      # Step 3 & 5 combined: Create venv, install dependencies (including PyInstaller), and build
-      - name: Create venv, Install Deps, and Build with PyInstaller
-        shell: cmd # Using cmd for reliable venv activation on Windows
+      # Step 3: Build Windows Executable using .spec file
+      - name: Build Windows Executable
+        shell: cmd # Using cmd for reliable venv activation and PyInstaller on Windows
         run: |
           echo "Setting up virtual environment and installing dependencies..."
           python -m venv venv
@@ -82,48 +82,42 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r backend-web-scrapper/requirements.txt
           pip install pyinstaller
-          echo "Dependencies installed. Starting PyInstaller build..."
+          echo "Dependencies installed."
+          
+          echo "Changing to backend-web-scrapper directory..."
           cd backend-web-scrapper
-          echo "Listing files in backend-web-scrapper directory (PyInstaller context):"
+          
+          echo "--- Listing files in backend-web-scrapper before build ---"
           dir
-          echo "Contents of .env in backend-web-scrapper directory (PyInstaller context):"
+          echo " "
+          echo "--- Verifying .env presence and content ---"
           type .env || echo ".env not found or type command failed"
-          echo "Attempting to build from main.py with command-line arguments..."
-          pyinstaller --noconfirm --clean main.py ^
-            --name web_scraper_backend ^
-            --console ^
-            --add-data "log_folder_config.txt;." ^
-            --add-data "../front-end-react/dist;static_frontend" ^
-            --add-data "../venv/Lib/site-packages/selenium_stealth/js;selenium_stealth/js" ^
-            --add-data ".env;." ^
-            --hidden-import="asyncio" ^
-            --hidden-import="logging" ^
-            --hidden-import="uuid" ^
-            --hidden-import="pathlib" ^
-            --hidden-import="pytz" ^
-            --hidden-import="charset_normalizer" ^
-            --hidden-import="multipart.exceptions" ^
-            --hidden-import="json" ^
-            --hidden-import="uvicorn" ^
-            --hidden-import="uvicorn.config" ^
-            --hidden-import="typing_extensions" ^
-            --hidden-import="pydantic_core" ^
-            --hidden-import="fastapi" ^
-            --hidden-import="fastapi.main" ^
-            --hidden-import="starlette" ^
-            --hidden-import="starlette.applications" ^
-            --hidden-import="pydantic" ^
-            --hidden-import="pandas" ^
-            --hidden-import="selenium" ^
-            --hidden-import="selenium.webdriver.common.service" ^
-            --hidden-import="selenium.webdriver.remote.remote_connection" ^
-            --hidden-import="selenium.webdriver.chrome.options" ^
-            --hidden-import="selenium_stealth" ^
-            --hidden-import="requests" ^
-            --hidden-import="bs4"
-          echo "PyInstaller build finished."
+          echo " "
+          echo "--- Verifying main.spec presence and content ---"
+          type main.spec || echo "main.spec not found or type command failed"
+          echo " "
+
+          echo "--- Cleaning up old build artifacts (build/ and dist/) ---"
+          if exist build (
+            echo "Removing old build directory..."
+            rd /s /q build
+          ) else (
+            echo "No old build directory to remove."
+          )
+          if exist dist (
+            echo "Removing old dist directory..."
+            rd /s /q dist
+          ) else (
+            echo "No old dist directory to remove."
+          )
+          echo "Cleanup finished."
+          echo " "
+          
+          echo "--- Starting PyInstaller build using main.spec ---"
+          pyinstaller --noconfirm main.spec
+          echo "--- PyInstaller build finished ---"
         # The output (dist folder) will be in backend-web-scrapper/dist/
-        # Note: Using ^ for line continuation in cmd.exe shell
+        # All build configurations are now in main.spec.
 
       # Step 4: Cache and Set Up ChromeDriver (Remains largely the same, just re-numbered logic)
       - name: Cache ChromeDriver
